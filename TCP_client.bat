@@ -1,0 +1,1 @@
+nc receiver_ip_address 12345 < MotoMoveTest.exe

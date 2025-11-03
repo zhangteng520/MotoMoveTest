@@ -1,0 +1,39 @@
+<?xml version="1.0" standalone="no"?>
+<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN"
+"http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
+
+ <svg width="450px" height="720px" viewBox="0 0 450 720" version="1.1" xmlns="http://www.w3.org/2000/svg">
+
+  <path d=""
+    style="fill:#66ff66; fill-opacity:0.27; fill-rule:evenodd; stroke:#000000; stroke-opacity:0.00; stroke-width:1.00;"/>
+  <path d=" M 430.00 430.00 L 430.00 430.00 L 389.00 430.00 L 20.00 430.00 L 20.00 389.00 L 20.00 20.00 L 61.00 20.00 L 430.00 20.00 L 430.00 61.00 L 430.00 430.00 z M 389.00 61.00 L 389.00 61.00 L 389.00 389.00 L 61.00 389.00 L 61.00 61.00 z M 348.00 102.00 L 348.00 102.00 L 348.00 348.00 L 102.00 348.00 L 102.00 102.00 z M 307.00 143.00 L 307.00 143.00 L 307.00 307.00 L 143.00 307.00 L 143.00 143.00 z M 266.00 184.00 L 266.00 184.00 L 266.00 266.00 L 184.00 266.00 L 184.00 184.00 z"
+    style="fill:#000000; fill-opacity:0.00; fill-rule:evenodd; stroke:#003300; stroke-opacity:1.00; stroke-width:1.00;"/>
+  <g font-family="Verdana" font-size="7" fill="#0000aa" fill-opacity="1">
+    <text x="430" y="430">5,5</text>
+    <text x="389" y="430">4,5</text>
+    <text x="20" y="430">-5,5</text>
+    <text x="20" y="389">-5,4</text>
+    <text x="20" y="20">-5,-5</text>
+    <text x="61" y="20">-4,-5</text>
+    <text x="430" y="20">5,-5</text>
+    <text x="430" y="61">5,-4</text>
+    <text x="430" y="430">5,5</text>
+    <text x="389" y="61">4,-4</text>
+    <text x="389" y="389">4,4</text>
+    <text x="61" y="389">-4,4</text>
+    <text x="61" y="61">-4,-4</text>
+    <text x="348" y="102">3,-3</text>
+    <text x="348" y="348">3,3</text>
+    <text x="102" y="348">-3,3</text>
+    <text x="102" y="102">-3,-3</text>
+    <text x="307" y="143">2,-2</text>
+    <text x="307" y="307">2,2</text>
+    <text x="143" y="307">-2,2</text>
+    <text x="143" y="143">-2,-2</text>
+    <text x="266" y="184">1,-1</text>
+    <text x="266" y="266">1,1</text>
+    <text x="184" y="266">-1,1</text>
+    <text x="184" y="184">-1,-1</text>
+  </g>
+
+</svg>
