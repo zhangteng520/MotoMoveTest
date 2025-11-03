@@ -933,7 +933,42 @@ int showUI()
 
 		
 			}
+
+			
 			ImGui::SameLine();
+
+			if (ImGui::Button("毕业路径")) {
+				char filename[256];
+				SelectOpenFiles(filename);
+				slcReader.clear();
+				slcReader.init(filename);
+				CLayers clayers = slcReader.layers();
+
+				auto& one_layer = clayers[0].bound;
+
+				SvgWriter svg;//改色修改pencolor
+
+				Clipper2Lib::Paths64 p = CBoundaryFloatToInt64(one_layer);
+				p = SimplifyPaths(p, 0, true);
+				svg.AddPaths(p, false, FillRule::Negative, 0x00000000, 0xFF000000, 1.3, false);
+
+				Clipper2Lib::JoinType jt = Clipper2Lib::JoinType::Round;
+				const float compensation = 0.1f;
+				int ratioCompensation = compensation * 5882;
+				int intervaluse = interval * 5882;
+				p = InflatePaths(p, -ratioCompensation, jt, Clipper2Lib::EndType::Polygon);
+				p = SimplifyPaths(p, 50, false);
+				svg.AddPaths(p, false, FillRule::Negative, 0x00000000, 0xFFFF0000, 1.3, false);
+				Edges edges = Paths64ToEdges(p, true);
+				Clipper2Lib::Paths64 result;
+				EdgesToRaster(edges, intervaluse, true, true, result);
+				//svg.AddPaths(p, false, FillRule::Negative, 0x00000000, 0x00FF0000, 1.3, false);
+
+				FillRule fr = FillRule::Negative;
+				SvgAddOpenSubject(svg, result, fr, false);
+				SvgSaveToFile(svg, "1.svg", 900, 1800, 20);
+				System("1.svg");
+			}
 			ImGui::Checkbox("激光毛化", &show_maohua_window);
 			if (show_maohua_window)
 			{
