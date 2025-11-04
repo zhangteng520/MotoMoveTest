@@ -345,9 +345,7 @@ RGBA GetLinearColor(int step, float cur, float low, float high) {
 		return rgba;
 	}
 }
-uint32_t RGBAToUnsigned(const RGBA& rgba) {
-	return rgba.b | rgba.g << 8 | rgba.r << 16 | rgba.a << 24;
-}
+
 void ShowVariPathss(const VariPathss& vpss,float power_high,float power_low) {
 	Clipper2Lib::SvgWriter svg;//¸ÄÉ«ÐÞ¸Äpencolor
 	for (int i = 0; i < vpss.size(); i++) {

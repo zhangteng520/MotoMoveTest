@@ -257,12 +257,15 @@ void EdgesToRaster(Edges& edges, int64_t interval, bool IsLowToHigh, bool IsScan
         for (int64_t scanLineX = Ymin, count = 0; scanLineX < Ymax; scanLineX += interval, count++) {
             //收集活性边
             Edges AET;
-            for (auto& edge : edges) {
-                if (edge.ymin <= scanLineX && edge.ymax > scanLineX)
+            for (auto& edge : edges) {   
+                if (edge.ymin <= scanLineX && edge.ymax > scanLineX) {
                     AET.push_back(edge);
+                }
             }
             if (AET.empty() == true)
                 continue;
+
+            assert(AET.size() % 2 == 0);
 
             //计算交点
             std::vector<int64_t> intersection;

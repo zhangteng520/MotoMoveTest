@@ -23,11 +23,43 @@
 #include "Voxelization.h"
 #include "tool.h"
 #include "game.h"
+#include "Render.h"
 #pragma execution_character_set("utf-8") 
 
 using namespace Clipper2Lib;
 static std::atomic<bool>ProcessFlag(false);
 static std::string rtc_crt_file = "c:\\home\\YMBuild\\RTC5_pbam\\right2.ct5";
+
+static Vector2DPlot plot;
+static std::vector<std::vector< ImVec2>> counters;
+static std::vector< ImVec2> fill;
+const static std::vector<RGBA> colorTable = {
+	{255,0,0,255}   //红色
+	,{0,0,255,255}	//蓝色
+	,{60,179,113,255} //绿色
+	,{238,130,238,255}// 紫色
+	,{255,165,0,255}	//黄色
+	,{106,90,205,255}	//紫蓝色
+	,{0,0,0,255}		//黑色
+	,{60,60,60,255}   //灰色
+};
+void ShowVectorPlotDemo()
+{
+	plot.Begin("2D Vector Plot", ImVec2(1200,900 ));
+
+	plot.Render();
+		//for (int i = 0; i < counters.size(); i++) {
+	//	plot.DrawPolygon(counters[i], RGBAToUnsigned(colorTable[i+1]), false, 2.0f);
+	//}
+	//plot.DrawPolygon(fill, RGBAToUnsigned(colorTable[0]), false, 1.0f);
+	//plot.DrawLine(ImVec2(-100, -50), ImVec2(100, 50), IM_COL32(255, 0, 0, 255), 2.0f);
+	//plot.DrawCircle(ImVec2(0, 0), 30, IM_COL32(0, 255, 0, 255));
+	//plot.DrawPolygon({ ImVec2(-50, -50), ImVec2(50, -50), ImVec2(0, 50) }, IM_COL32(0, 128, 255, 255), false, 2.0f);
+	//plot.DrawBezier(ImVec2(-100, -100), ImVec2(-50, 100), ImVec2(50, -100), ImVec2(100, 100),
+	//	IM_COL32(255, 255, 0, 255), 2.0f);
+
+	plot.End();
+}
 void OxygenControl(float oxygenRatio, int charmberPressure) {
 	//氧气含量自动控制
 	while (ProcessFlag.load(std::memory_order_acquire) == true) {
@@ -658,7 +690,7 @@ int showUI()
 			static int current = 0;
 			static int counter = 0;
 
-
+			ShowVectorPlotDemo();
 			ImGui::Begin("主控台", NULL, 0);                          // Create a window called "Hello, world!" and append into it.            // Display some text (you can use a format strings too)
 
 			//ImGui::Begin("Numeric Keypad", open);
@@ -938,6 +970,9 @@ int showUI()
 			ImGui::SameLine();
 
 			if (ImGui::Button("毕业路径")) {
+
+				plot.ClearScreen();
+
 				char filename[256];
 				SelectOpenFiles(filename);
 				slcReader.clear();
@@ -946,28 +981,37 @@ int showUI()
 
 				auto& one_layer = clayers[0].bound;
 
-				SvgWriter svg;//改色修改pencolor
+				//SvgWriter svg;//改色修改pencolor
 
 				Clipper2Lib::Paths64 p = CBoundaryFloatToInt64(one_layer);
 				p = SimplifyPaths(p, 0, true);
-				svg.AddPaths(p, false, FillRule::Negative, 0x00000000, 0xFF000000, 1.3, false);
+				//svg.AddPaths(p, false, FillRule::Negative, 0x00000000, 0xFF000000, 1.3, false);
 
-				Clipper2Lib::JoinType jt = Clipper2Lib::JoinType::Round;
-				const float compensation = 0.1f;
-				int ratioCompensation = compensation * 5882;
-				int intervaluse = interval * 5882;
-				p = InflatePaths(p, -ratioCompensation, jt, Clipper2Lib::EndType::Polygon);
-				p = SimplifyPaths(p, 50, false);
-				svg.AddPaths(p, false, FillRule::Negative, 0x00000000, 0xFFFF0000, 1.3, false);
+				plot.DrawPaths64(ConnectPloygon(p), RGBAToUnsigned(colorTable[0]));
+				//Clipper2Lib::JoinType jt = Clipper2Lib::JoinType::Round;
+				//const float compensation = 0.1f;
+				//int ratioCompensation = compensation * 5882;
+				
+				//p = InflatePaths(p, -ratioCompensation, jt, Clipper2Lib::EndType::Polygon);
+				//p = SimplifyPaths(p, 50, false);
+				//plot.DrawPaths64(ConnectPloygon(p), RGBAToUnsigned(colorTable[1]));
+				//svg.AddPaths(p, false, FillRule::Negative, 0x00000000, 0xFFFF0000, 1.3, false);
 				Edges edges = Paths64ToEdges(p, true);
 				Clipper2Lib::Paths64 result;
+				int intervaluse = 0.04 * 5882;
 				EdgesToRaster(edges, intervaluse, true, true, result);
-				//svg.AddPaths(p, false, FillRule::Negative, 0x00000000, 0x00FF0000, 1.3, false);
 
-				FillRule fr = FillRule::Negative;
-				SvgAddOpenSubject(svg, result, fr, false);
-				SvgSaveToFile(svg, "1.svg", 900, 1800, 20);
-				System("1.svg");
+				LineCompensation(result, 0.1 * 5882);
+				plot.DrawPaths64(result, RGBAToUnsigned(colorTable[2]));
+				//svg.AddPaths(p, false, FillRule::Negative, 0x00000000, 0x00FF0000, 1.3, false);
+				//fill = Paths64ToImVec2(result);
+				//FillRule fr = FillRule::Negative;
+				//SvgAddOpenSubject(svg, result, fr, false);
+				//SvgSaveToFile(svg, "1.svg", 900, 1800, 20);
+				//System("1.svg");
+
+
+
 			}
 			ImGui::Checkbox("激光毛化", &show_maohua_window);
 			if (show_maohua_window)

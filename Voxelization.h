@@ -112,6 +112,9 @@ struct KerneL{
 struct RGBA {
 	unsigned char r, g, b, a;
 };
+inline uint32_t RGBAToUnsigned(const RGBA& rgba) {
+	return rgba.b | rgba.g << 8 | rgba.r << 16 | rgba.a << 24;
+}
 //
 CubeD GetCubf(const CLayers& clayers);
 void MakeVoxelDimension(const CubeD& cube , VoxelDimension& voxelDis);

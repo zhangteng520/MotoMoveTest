@@ -112,3 +112,27 @@ void ZigZagPlaning(const CBoundary& boundary, double interval, double compensati
 void RasterPlaning(const CBoundary& boundary, double interval, double compensation, double  rotate_angle, const AirOutlet air, Clipper2Lib::Paths64& paths64fill, Clipper2Lib::Paths64& paths64contour);
 void StripPlaning(const CBoundary& boundary, double interval, double compensation, double  rotate_angle, const AirOutlet air,
 	double stripwidth, double tolerance, Clipper2Lib::Paths64& paths64fill, std::vector<Clipper2Lib::Paths64>& paths64contour, int BoundaryOffsetTimes = 1);
+
+
+inline Clipper2Lib::Paths64 ConnectPloygon(const Clipper2Lib::Paths64& p) {
+	Clipper2Lib::Paths64 ret;
+	for (auto& i : p) {
+		Clipper2Lib::Path64 path;
+		for (auto& j : i) {
+			path.push_back(j);
+		}
+		path.push_back(i.front());
+		ret.push_back(path);
+	}
+
+	return ret;
+}
+
+inline void LineCompensation( Clipper2Lib::Paths64& p,int64_t length) {
+	for (auto& i : p) {
+		i[0].x = i[0].x + length;
+		i[1].x = i[1].x - length;
+	}
+}
+
+

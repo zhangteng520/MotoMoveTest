@@ -136,5 +136,8 @@
     <ClInclude Include="game.h">
       <Filter>Imgui</Filter>
     </ClInclude>
+    <ClInclude Include="Render.h">
+      <Filter>file</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>
