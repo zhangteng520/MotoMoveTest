@@ -43,6 +43,7 @@ const static std::vector<RGBA> colorTable = {
 	,{0,0,0,255}		//黑色
 	,{60,60,60,255}   //灰色
 };
+
 void ShowVectorPlotDemo()
 {
 	plot.Begin("2D Vector Plot", ImVec2(1200,900 ));
@@ -1452,7 +1453,7 @@ int showUI()
 
 				if (ImGui::Button("直线")) {
 					scanInitial(utf8_to_gb2312(rtc_crt_file));
-					ScanLines(nums_x, nums_y, interval_x, interval_y, radius, t_power, t_speed);
+					ScanLiness(nums_x, nums_y, interval_x, interval_y, radius, t_power, t_speed);
 					scanFree();
 				}
 				if (ImGui::Button("十字线")) {
@@ -1472,25 +1473,30 @@ int showUI()
 				if (ImGui::Button("BitMap")) {
 					scanInitial(utf8_to_gb2312(rtc_crt_file));
 					Bitmap(nums_x, nums_y, radius, t_power,SampleTimes);
+					ShowScanLinesSVG(BitmapScanLines(nums_x, nums_y, radius, t_power, SampleTimes));
 					scanFree();
 				}
 				ImGui::SameLine();
 				if (ImGui::Button("Love")) {
 					scanInitial(utf8_to_gb2312(rtc_crt_file));
 					Love(radius, SampleTimes, t_power, t_speed);
+					ShowScanLinesSVG(LoveScanLines(radius, SampleTimes, t_power, t_speed));
 					scanFree();
 				}
 				ImGui::SameLine();
 				if (ImGui::Button("Raster")) {
 					scanInitial(utf8_to_gb2312(rtc_crt_file));
 					DynamicRectLines(interval_x,interval_y,nums_x,nums_y, t_power, t_speed);
+					ShowScanLinesSVG(DynamicRectLinesScanLines(interval_x, interval_y, nums_x, nums_y, t_power, t_speed));
 					scanFree();
 				}
 				ImGui::SameLine();
 				if (ImGui::Button("Spiral")) {
 					scanInitial(utf8_to_gb2312(rtc_crt_file));
 					ArchimedeanSpirals(radius,interval_x,SampleTimes, t_power, t_speed);
+					ShowScanLinesSVG(ArchimedeanSpiralsScanLines(radius, interval_x, SampleTimes, t_power, t_speed));
 					scanFree();
+					
 				}
 				ImGui::End();
 			}

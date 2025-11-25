@@ -61,6 +61,15 @@ template<typename  T>
 inline double DisTwoPoints(const T& p1, const T& p2) {
 	return std::sqrt((p1.x - p2.x) * (p1.x - p2.x) + (p1.y - p2.y) * (p1.y - p2.y));
 }
+struct ScanLine {
+	Clipper2Lib::Path64 path64;
+	float power;
+	float speed;
+	float delay;//ms
+	ScanLine(Clipper2Lib::Path64 path64, float power, float speed) :path64(path64), power(power), speed(speed), delay(0.f) {};
+	ScanLine(Clipper2Lib::Path64 path64, float power, float speed, float delay) :path64(path64), power(power), speed(speed), delay(delay) {};
+};
+using ScanLines = std::vector<ScanLine>;
 
 void Paths64RatioConvert(Clipper2Lib::Paths64& path, double ratio);
 void VariPathssConvert(VariPathss& vpss, double ratio);
@@ -104,6 +113,7 @@ void GetMarkJumpTime(const Clipper2Lib::Paths64& fill, const Clipper2Lib::Paths6
 void ShowPaths64(const Clipper2Lib::Paths64& paths);
 void Connect(const Clipper2Lib::Paths64& paths, Clipper2Lib::Paths64& output);
 void ShowSvg(const Clipper2Lib::Paths64& fill, const Clipper2Lib::Paths64& contour);
+void ShowScanLinesSVG(const ScanLines& lines);
 //route
 void AutoFeed(double AreaPlate, double AreaEntity, double layerThickness, double& addThickness);
 //这里的boundary会被修改
@@ -135,4 +145,6 @@ inline void LineCompensation( Clipper2Lib::Paths64& p,int64_t length) {
 	}
 }
 
+
+inline float SlowInterpolation(float fp) { return -fp * fp + 2 * fp; }
 

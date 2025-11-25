@@ -1,6 +1,6 @@
 #include <algorithm> 
 #include "clipper2.h"
-
+#include "imgui.h"
 
 using namespace std;
 using namespace Clipper2Lib;
@@ -1206,6 +1206,27 @@ void ShowSvg(const Clipper2Lib::Paths64& fill, const Clipper2Lib::Paths64& conto
     svg.AddPaths(contour, false, FillRule::Negative, 0x00000000, 0xFFFF0000, 1.3, false);
     FillRule fr = FillRule::Negative;
     SvgAddOpenSubject(svg, fill, fr, false);
+    SvgSaveToFile(svg, "1.svg", 900, 1800, 20);
+    System("1.svg");
+}
+
+static inline glm::vec4 GetColor(float cur, float min, float max) {
+    ImColor color; color.SetHSV(0.7 - 0.7 * SlowInterpolation((cur - min) / (max - min)), 1.f, 1.f);
+    glm::vec4 color1 = { color.Value.x,color.Value.y,color.Value.z,1.f };
+    return color1;
+}
+void ShowScanLinesSVG(const ScanLines& lines) {
+    SvgWriter svg;//¸ÄÉ«ÐÞ¸Äpencolor
+   //
+    FillRule fr = FillRule::Negative;
+    for (auto& i : lines) {
+        unsigned int  r = GetColor(i.power, 50, 125).r*255;
+        unsigned int  g = GetColor(i.power, 50, 125).g*255;
+        unsigned int  b = GetColor(i.power, 50, 125).b*255;
+        unsigned int color = (0xFF << 24) + (r << 16) + (g << 8) + b;
+        svg.AddPath(i.path64, true, FillRule::Negative, 0x00000000, color, 2.5, false);
+    }
+    //SvgAddOpenSubject(svg, fill, fr, false);
     SvgSaveToFile(svg, "1.svg", 900, 1800, 20);
     System("1.svg");
 }

@@ -109,13 +109,17 @@ struct ScanParamter {
 void MultiPartsPrint(ScanParamter scanparameter, std::vector<CLayers> clayerss, bool IsStimulate, std::atomic<bool>& ProcessFlag);
 //void OxygenControl(float oxygenRatio, int charmberPressure);
 void ScanCircles(int nums_x, int nums_y, float interval_x, float interval_y, float radius, float power, float speed);
-void ScanLines(int nums_x, int nums_y, float interval_x, float interval_y, float radius, float power, float speed);
+void ScanLiness(int nums_x, int nums_y, float interval_x, float interval_y, float radius, float power, float speed);
 void MarkCircles(int nums_x, int nums_y, float interval_x, float interval_y, float radius, float tolerance, float power, float speed,bool delay);
 
 void Love(double radius, int sampleTimes, float power, float speed);
+ScanLines LoveScanLines(double radius, int sampleTimes, float power, float speed);
 void ArchimedeanSpirals(double radius, double interval, int sampleTimes, float power, float speed);
+ScanLines ArchimedeanSpiralsScanLines(double radius, double interval, int sampleTimes, float power, float speed);
 void DynamicRectLines(double length, double interval_y, int nums_x, int nums_y, double power, double speed);
+ScanLines DynamicRectLinesScanLines(double length, double interval_y, int nums_x, int nums_y, double power, double speed);
 void Bitmap(int resolution_x, int resolution_y, double dot_size, float power, float PixelPeriod = 200);
+ScanLines BitmapScanLines(int resolution_x, int resolution_y, double dot_size, float power, float PixelPeriod);
 void ScanCrossLines(int nums_x, int nums_y, float interval_x, float interval_y, float length, float power, float speed);
 
 

@@ -331,7 +331,7 @@ void ScanCircles(int nums_x, int nums_y, float interval_x, float interval_y, flo
 	} while (busy);
 }
 
-void ScanLines(int nums_x, int nums_y, float interval_x, float interval_y, float radius, float power, float speed) {
+void ScanLiness(int nums_x, int nums_y, float interval_x, float interval_y, float radius, float power, float speed) {
 	const int m_step_ratio = 5882;
 	unsigned int busy, position;
 	do
@@ -529,6 +529,45 @@ void Bitmap(int resolution_x,int resolution_y,double dot_size, float power,float
 		get_status(&busy, &position);
 	} while (busy);
 }
+
+ScanLines BitmapScanLines(int resolution_x, int resolution_y, double dot_size, float power, float PixelPeriod) {
+
+	ScanLines ret;
+
+	const int m_step_ratio = 5882;
+	int DotSize = dot_size * m_step_ratio;
+	const float speed = 1000;
+	for (int i = 0; i < resolution_y; i++) {
+		int start_x = -resolution_x * DotSize;
+		int start_y = -resolution_y * DotSize / 2 + i * DotSize;
+		
+		int end_x = -resolution_x/10 * DotSize;
+
+		double cur_power = 50 + (power - 50) / resolution_y * i;
+		Clipper2Lib::Point64 p1({ start_x,-start_y });
+		Clipper2Lib::Point64 p2({ end_x, -start_y });
+		Clipper2Lib::Path64 path = { p1,p2 };
+		ScanLine line(path, cur_power, speed);
+		ret.push_back(line);
+	}
+
+	for (int i = 0; i < resolution_y; i++) {
+		int start_x = 0;
+		int start_y = -resolution_y * DotSize / 2 + i * DotSize;
+		
+		int end_x = resolution_x * DotSize;
+
+		double cur_power = power - (power - 50) / resolution_y * i;
+		
+		Clipper2Lib::Point64 p1({ start_x,-start_y });
+		Clipper2Lib::Point64 p2({ end_x, -start_y });
+		Clipper2Lib::Path64 path = { p1,p2 };
+		ScanLine line(path, cur_power, speed);
+		ret.push_back(line);
+	}
+	return ret;
+
+}
 void DynamicRectLines(double length, double interval_y,int nums_x,int nums_y, double power,double speed) {
 	unsigned int busy, position;
 	do
@@ -571,7 +610,31 @@ void DynamicRectLines(double length, double interval_y,int nums_x,int nums_y, do
 		get_status(&busy, &position);
 	} while (busy);
 }
+ScanLines DynamicRectLinesScanLines(double length, double interval_y, int nums_x, int nums_y, double power, double speed) {
+	ScanLines ret;
+	
+	const int m_step_ratio = 5882;
+	double interval_x = length / nums_x;
+	double speedset = speed / 1000 * m_step_ratio;
+	for (int i = 0; i < nums_y; i++) {
+		for (int j = 0; j < nums_x; j++) {
+			double cur_power = 50 + (power - 50) / nums_x * j;
 
+			int start_x = (-length / 2 + interval_x * j) * m_step_ratio;
+			int start_y = (-nums_y / 2 * interval_y + i * interval_y) * m_step_ratio;
+			int end_x = (-length / 2 + interval_x * (j + 1)) * m_step_ratio;
+
+			
+
+			Clipper2Lib::Point64 p1({ start_x,start_y });
+			Clipper2Lib::Point64 p2({ end_x, start_y });
+			Clipper2Lib::Path64 path = { p1,p2 };
+			ScanLine line(path, cur_power, speed);
+			ret.push_back(line);
+		}
+	}
+	return ret;
+}
 void ArchimedeanSpirals(double radius,double interval,int sampleTimes, float power,float speed) {
 	unsigned int busy, position;
 	do
@@ -605,7 +668,32 @@ void ArchimedeanSpirals(double radius,double interval,int sampleTimes, float pow
 		get_status(&busy, &position);
 	} while (busy);
 }
+ScanLines ArchimedeanSpiralsScanLines(double radius, double interval, int sampleTimes, float power, float speed){
+	double pi = 3.1415926;
+	const int m_step_ratio = 5882;
+	double speedset = speed / 1000 * m_step_ratio;
+	ScanLines ret;
+	for (int i = 0; i < sampleTimes; i++) {
+		double cur_power = 50 + (power - 50) / sampleTimes  * i;
 
+
+		double angle = 2 * pi * 3 / sampleTimes * i;
+		double x = (radius + angle / pi / 2 * interval) * cos(angle);
+		double y = (radius + angle / pi / 2 * interval) * sin(angle);
+
+		double angle1 = 2 * pi * 3 / sampleTimes * (i+1);
+		double x1 = (radius + angle1 / pi / 2 * interval) * cos(angle1);
+		double y1 = (radius + angle1 / pi / 2 * interval) * sin(angle1);
+
+		Clipper2Lib::Point64 p1({ x * m_step_ratio, -y * m_step_ratio });
+		Clipper2Lib::Point64 p2({ x1 * m_step_ratio, -y1 * m_step_ratio });
+		Clipper2Lib::Path64 path = { p1,p2 };
+		ScanLine line(path, cur_power, speed);
+		ret.push_back(line);
+	}
+
+	return ret;
+}
 void Love(double radius, int sampleTimes, float power, float speed) {
 	unsigned int busy, position;
 	do
@@ -661,7 +749,53 @@ void Love(double radius, int sampleTimes, float power, float speed) {
 }
 
 
+ScanLines LoveScanLines(double radius, int sampleTimes, float power, float speed) {
+	double pi = 3.1415926;
+	const int m_step_ratio = 5882;
+	ScanLines ret;
 
+	for (int i = 0; i < sampleTimes / 2; i++) {
+		double cur_power = 50 + (power - 50) / sampleTimes * 2 * i;
+
+		double angle = -pi / 2 + 2 * pi / sampleTimes * i;
+		double row = radius * (1 - sin(angle));
+		double x = row * cos(angle);
+		double y = row * sin(angle);
+
+		double angle1 = -pi / 2 + 2 * pi / sampleTimes * ((i+1));
+		double row1 = radius * (1 - sin(angle1));
+		double x1 = row1 * cos(angle1);
+		double y1 = row1 * sin(angle1);
+
+		Clipper2Lib::Point64 p1({ x * m_step_ratio, y * m_step_ratio });
+		Clipper2Lib::Point64 p2({x1 * m_step_ratio, y1 * m_step_ratio});
+		Clipper2Lib::Path64 path = { p1,p2 };
+		ScanLine line(path, cur_power, speed);
+		ret.push_back(line);
+	}
+
+	for (int i = 0; i < sampleTimes / 2; i++) {
+		double cur_power = 50 + (power - 50) / sampleTimes * 2 * i;
+
+		double angle = -pi / 2 - 2 * pi / sampleTimes * i;
+		double row = radius * (1 - sin(angle));
+		double x = row * cos(angle);
+		double y = row * sin(angle);
+
+		double angle1 = -pi / 2 -2 * pi / sampleTimes * ((i + 1));
+		double row1 = radius * (1 - sin(angle1));
+		double x1 = row1 * cos(angle1);
+		double y1 = row1 * sin(angle1);
+
+		Clipper2Lib::Point64 p1({ x * m_step_ratio, y * m_step_ratio });
+		Clipper2Lib::Point64 p2({ x1 * m_step_ratio, y1 * m_step_ratio });
+		Clipper2Lib::Path64 path = { p1,p2 };
+		ScanLine line(path, cur_power, speed);
+		ret.push_back(line);
+	}
+
+	return ret;
+}
 
 
 Clipper2Lib::PathsD Generate(double angle_delta, int counter) {
