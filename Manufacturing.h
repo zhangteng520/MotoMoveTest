@@ -124,3 +124,7 @@ void ScanCrossLines(int nums_x, int nums_y, float interval_x, float interval_y, 
 
 
 
+ScanLines ThermalImageToScanLines(const CLayers& layer, int height_index, float interval, float powerMax, float powerMin, float speed, const char* image_path, const float voxelsize);
+
+
+

@@ -1205,7 +1205,8 @@ void ShowSvg(const Clipper2Lib::Paths64& fill, const Clipper2Lib::Paths64& conto
     SvgWriter svg;//¸ÄÉ«ÐÞ¸Äpencolor
     svg.AddPaths(contour, false, FillRule::Negative, 0x00000000, 0xFFFF0000, 1.3, false);
     FillRule fr = FillRule::Negative;
-    SvgAddOpenSubject(svg, fill, fr, false);
+    //SvgAddOpenSubject(svg, fill, fr, false);
+    svg.AddPaths(fill, true, FillRule::Negative, 0x00000000, 0xFFFFFF00, 2.5, true);
     SvgSaveToFile(svg, "1.svg", 900, 1800, 20);
     System("1.svg");
 }
@@ -1224,7 +1225,7 @@ void ShowScanLinesSVG(const ScanLines& lines) {
         unsigned int  g = GetColor(i.power, 50, 125).g*255;
         unsigned int  b = GetColor(i.power, 50, 125).b*255;
         unsigned int color = (0xFF << 24) + (r << 16) + (g << 8) + b;
-        svg.AddPath(i.path64, true, FillRule::Negative, 0x00000000, color, 2.5, false);
+        svg.AddPath(i.path64, true, FillRule::Negative, 0x00000000, color, 5, false);
     }
     //SvgAddOpenSubject(svg, fill, fr, false);
     SvgSaveToFile(svg, "1.svg", 900, 1800, 20);

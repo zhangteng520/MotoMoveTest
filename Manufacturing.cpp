@@ -843,3 +843,183 @@ void ScanSingle(float power,float speed) {
 
 	scanFill(paths, power, speed);
 }
+
+/**
+ * @brief 将归一化的 RGB 颜色转换为归一化的 HSV 颜色。
+ *
+ * @param r [输入] 红色分量 (0.0f - 1.0f)
+ * @param g [输入] 绿色分量 (0.0f - 1.0f)
+ * @param b [输入] 蓝色分量 (0.0f - 1.0f)
+ * @param h [输出] 色相 (0.0f - 1.0f)
+ * @param s [输出] 饱和度 (0.0f - 1.0f)
+ * @param v [输出] 明度 (0.0f - 1.0f)
+ */
+void rgb_to_hsv(float r, float g, float b, float* h, float* s, float* v) {
+	// 确保输出指针有效
+	if (h == nullptr || s == nullptr || v == nullptr) {
+		return;
+	}
+
+	float max_val = std::max({ r, g, b });
+	float min_val = std::min({ r, g, b });
+	float delta = max_val - min_val;
+
+	// 计算 V (明度)
+	*v = max_val;
+
+	// 计算 S (饱和度)
+	*s = (max_val == 0.0f) ? 0.0f : delta / max_val;
+
+	// 计算 H (色相)
+	if (delta == 0.0f) {
+		*h = 0.0f; // 灰色，色相无意义
+	}
+	else if (max_val == r) {
+		*h = fmod(((g - b) / delta + 6.0f), 6.0f);
+	}
+	else if (max_val == g) {
+		*h = ((b - r) / delta + 2.0f);
+	}
+	else { // max_val == b
+		*h = ((r - g) / delta + 4.0f);
+	}
+
+	// 将 H 从 0~6 映射到 0~1
+	*h /= 6.0f;
+}
+struct RGb {
+	unsigned char r, g, b;
+};
+ScanLines ThermalImageToScanLines(const CLayers& layer, int height_index,float interval,float powerMax,float powerMin,float speed, const char* image_path,const float voxelsize) {
+	int width, height, channels;
+	ScanLines ret;
+	// 加载图片
+	// 最后一个参数 0 表示保持图片原始的通道数
+	unsigned char* image_data = stbi_load(image_path, &width, &height, &channels, 0);
+
+	if (image_data == nullptr) {
+		std::cerr << "Failed to load image: " << stbi_failure_reason() << std::endl;
+
+	}
+	std::vector<std::vector < RGb>>bitmap(height,std::vector <RGb>(width,{0,0,0}));
+	//s.resize(width * height);
+	float h_max = -1, h_min = 1;
+	for (int i = 0; i < height; i++) {
+		for (int j = 0; j < width; j++) {
+			int idx = (j + i * width) * channels;
+			bitmap[i][j].r = image_data[idx];
+			bitmap[i][j].g = image_data[idx + 1];
+			bitmap[i][j].b = image_data[idx + 2];
+
+			float h, s, v;
+			float r = static_cast<float>(image_data[idx]) / 255.f;
+			float g = static_cast<float>(image_data[idx + 1]) / 255.f;
+			float b = static_cast<float>(image_data[idx + 2]) / 255.f;
+			rgb_to_hsv(r, g, b, &h, &s, &v);
+			if (abs(r - 1.0f) < 1e-5 && abs(g - 1.0f) < 1e-5 && abs(b - 1.0f) < 1e-5) {
+
+			}
+			else {
+				h_max = std::max(h_max, h);
+				h_min = std::min(h_min, h);
+			}
+		}
+	}
+	// 打印图片信息
+	std::cout << "Image loaded successfully!" << std::endl;
+	std::cout << "Width: " << width << " pixels" << std::endl;
+	std::cout << "Height: " << height << " pixels" << std::endl;
+
+	//包围盒
+	Cube3D cube = GetCube(layer);
+	
+
+	//路径规划
+	Clipper2Lib::Paths64 fill, contour;
+	Paths64Planing(layer[height_index].bound,interval, 0.1,(height_index*67)%360 , AirOutlet::Right, fill, contour);
+	
+	//轮廓首尾相连
+	for (auto& i : contour) {
+		i.push_back(i[0]);
+	}
+
+	auto PathMapping = [&](const Clipper2Lib::Paths64 p)
+		{
+			for (const auto& i : p) {
+				for(int j = 0 ; j < i.size()-1 ;j++){
+					const double devide = 588.2;
+					const int64_t xx = i[j].x;
+					const int64_t yy = i[j].y;
+					const int64_t xx1 = i[j+1].x;
+					const int64_t yy1 = i[j+1].y;
+					const Clipper2Lib::Point64 p1(xx, yy);
+					const Clipper2Lib::Point64 p2(xx1, yy1);
+
+					//Clipper2Lib::Point64 p1(i[j].x,i[j].y);
+					//Clipper2Lib::Point64 p2(i[j + 1].x,i[j+1].y);
+					double length = DisTwoPoints(p1, p2);
+					int counter = std::ceil(length /devide);
+					double sinx = (p2.y - p1.y) /	length;
+					double cosx = (p2.x - p1.x) / length;
+					
+					for(int k = 0 ; k < counter;k++){
+						int64_t x1 = p1.x + k * cosx * devide;
+						int64_t y1 = p1.y + k * sinx * devide;
+
+						int64_t x2 = p1.x + (k+1) * cosx * devide;
+						int64_t y2 = p1.y + (k+1) * sinx * devide;
+						bool breakFlag = false;
+						if (DisTwoPoints(p1, Clipper2Lib::Point64(x2,y2))> length) {
+							x2 = p2.x;
+							y2 = p2.y;
+							breakFlag = true;
+						}
+						Clipper2Lib::Point64 p1(x1, y1),p2(x2,y2);
+						Clipper2Lib::Path64 path64 = { p1,p2 };
+						
+						
+						
+
+
+						int voxel_index_x = std::round((x2 - cube.x_min * 5882.0) / 5882.0);
+						int voxel_index_y = std::round((y2 - cube.y_min * 5882.0) / 5882.0);
+						if (voxel_index_x >= width || voxel_index_y >= height) {
+							std::cout << p1.x << " " << p1.y << std::endl;
+							std::cout << p2.x << " " << p2.y << std::endl;
+							std::cout << x2 << " " << y2 << std::endl;
+							std::cout << i[j + 1].x << " " << i[j + 1].y << std::endl;
+							std::cout << i[j].x << " " << i[j].y << std::endl;
+							throw "error";
+						}
+						int index = (voxel_index_y * width + voxel_index_x)*channels;
+						int r = image_data[index];
+						int g = image_data[index + 1];
+						int b = image_data[index + 2];
+
+
+						float h, s, v;
+						rgb_to_hsv(r / 255.f, g / 255.f, b / 255.f, &h, &s, &v);
+
+						float factor = (h_max - h)/(h_max-h_min);
+						if (factor < 0) {
+							throw "error";
+						}
+						ScanLine line(path64, (1-factor)*(powerMax-powerMin)+powerMin, speed);
+						ret.push_back(line);
+						
+						
+						if (breakFlag) {
+							
+							break;
+						}
+					}
+				}
+			}
+		};
+
+	PathMapping(fill);
+	PathMapping(contour);
+	// 非常重要：释放图像数据占用的内存
+	stbi_image_free(image_data);
+	return ret;
+}

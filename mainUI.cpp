@@ -43,6 +43,111 @@ const static std::vector<RGBA> colorTable = {
 	,{0,0,0,255}		//黑色
 	,{60,60,60,255}   //灰色
 };
+inline GLuint LoadTextureFromFile(std::vector<unsigned char >& data, int& width, int& height) {
+
+	GLuint texture;
+	glGenTextures(1, &texture);
+	glBindTexture(GL_TEXTURE_2D, texture);
+	glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, data.data());
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+	return texture;
+}
+// ImGui 中绘制
+inline void RenderImGuiImage(std::vector<unsigned char>& data, int& img_w, int& img_h, bool* changed) {
+	static GLuint my_texture = 0;
+	if (my_texture == 0 && data.size()) {
+		my_texture = LoadTextureFromFile(data, img_w, img_h);
+	}
+	else if (my_texture != 0 && *changed && data.size()) {
+		glDeleteTextures(1, &my_texture);
+		my_texture = 0;
+		my_texture = LoadTextureFromFile(data, img_w, img_h);
+		*changed = false;
+	}
+
+	if (my_texture) {
+		//ImGui::Text("图像预览:");
+		ImGui::Image((ImTextureID)(intptr_t)my_texture, ImVec2(img_w, img_h));
+	}
+}
+int SavePictureToCSV() {
+	const char* inputFile = "G:\\39.jpg";
+	const char* outputCSV = "G:\\output3.csv";
+	int width, height, channels;
+	unsigned char* data = stbi_load(inputFile, &width, &height, &channels, 0);
+	if (!data) {
+		std::cerr << "Failed to load image!\n";
+		return 1;
+	}
+
+	std::cout << "Loaded image: " << width << " x " << height
+		<< ", channels = " << channels << "\n";
+
+	std::ofstream csv(outputCSV);
+	if (!csv.is_open()) {
+		std::cerr << "Failed to open CSV file!\n";
+		stbi_image_free(data);
+		return 1;
+	}
+
+	// 每个像素作为一个单元格
+	// 单元格内容格式：R G B（如果是 RGB 图）
+	for (int y = 0; y < height; ++y) {
+		for (int x = 0; x < width; ++x) {
+			int idx = (y * width + x) * channels;
+
+			int R = data[idx + 0];
+			int G = (channels >= 2) ? data[idx + 1] : 0;
+			int B = (channels >= 3) ? data[idx + 2] : 0;
+
+			// 单元格格式： R G B
+			csv << R << " " << G << " " << B;
+
+			if (x < width - 1) csv << ",";  // CSV 列分隔
+		}
+		csv << "\n"; // 新行
+	}
+
+	csv.close();
+	stbi_image_free(data);
+
+	std::cout << "Saved CSV: " << outputCSV << "\n";
+	return 0;
+}
+GLuint LoadTextureFromFile(const char* filename, int* out_width, int* out_height)
+{
+	int width, height, channels;
+	unsigned char* data = stbi_load(filename, &width, &height, &channels, 0);
+	if (!data) {
+		printf("Failed to load image: %s\n", filename);
+		return 0;
+	}
+
+	GLenum format = GL_RGB;
+	if (channels == 1) format = GL_RED;
+	else if (channels == 3) format = GL_RGB;
+	else if (channels == 4) format = GL_RGBA;
+
+	GLuint texture_id = 0;
+	glGenTextures(1, &texture_id);
+	glBindTexture(GL_TEXTURE_2D, texture_id);
+
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+	glTexImage2D(GL_TEXTURE_2D, 0, format, width, height, 0,
+		format, GL_UNSIGNED_BYTE, data);
+
+	stbi_image_free(data);
+
+	if (out_width) *out_width = width;
+	if (out_height) *out_height = height;
+
+	return texture_id;
+}
 
 void ShowVectorPlotDemo()
 {
@@ -917,7 +1022,7 @@ int showUI()
 					std::vector<Clipper2Lib::Paths64> contour1;
 					int a = 67;
 					double rotate = (a * layer_index + 0) % 360;
-					StripPlaning(clayers[layer_index].bound, 0.08,
+					StripPlaning(clayers[layer_index].bound, 2,
 						0.1, rotate, AirOutlet::Right, 20, 0.1, fill, contour1, 1);
 
 					if (number < fill.size())
@@ -948,26 +1053,46 @@ int showUI()
 				Clipper2Lib::Paths64 fill, contour;
 				int a = 67;
 				double rotate = (a * layers + 0) % 360;
-				Paths64Planing(clayers[layers].bound, 0.08,
+				Paths64Planing(clayers[layers].bound, 2,
 					0.1, rotate, AirOutlet::Right, fill, contour);
 
 				if (number < fill.size())
 					fill.resize(number);
 
 				SvgWriter svg;//改色修改pencolor
-					svg.AddPaths(contour, false, FillRule::Negative, 0x00000000, 0xFFFF0000, 1.3, false);
+					svg.AddPaths(contour, false, FillRule::Negative, 0x00000000, 0xFFFF0000, 5, false);
 				
 
 				//svg.AddPaths(contour, false, FillRule::Negative, 0x00000000, 0xFFFF0000, 1.3, false);
 				FillRule fr = FillRule::Negative;
-				SvgAddOpenSubject(svg, fill, fr, false);
+				svg.AddPaths(fill, true, FillRule::Negative, 0x00000000, 0xFF000000, 5, false);
+				//SvgAddOpenSubject(svg, fill, fr, false);
 				SvgSaveToFile(svg,  "1.svg", 900, 1800, 20);
 				System("1.svg");
 
 		
 			}
+			ImGui::SameLine();
+			static int image_width, image_height, channels; bool flagChange = true; static GLuint my_texture;
+			static std::vector<unsigned char> ImageData;
+			if (ImGui::Button("变参数打印")) {
+				char filename[256],image_file[256];
+				SelectOpenFiles(filename);
+				slcReader.clear();
+				slcReader.init(filename);
+				CLayers clayers = slcReader.layers();
 
+				//SelectOpenFiles(image_file);
+				ShowScanLinesSVG(ThermalImageToScanLines(clayers, 975, 2, 125, 50, 1000, "G:\\39.jpg", 1));
+				
+				unsigned char *p = stbi_load("G:\\39.png", &image_width, &image_height, &channels, 3);
+				//my_texture =LoadTextureFromFile("G:\\59.png", &image_width, &image_height);
+				SavePictureToCSV();
+				
+			}
 			
+			ImGui::Image((ImTextureID)(intptr_t)my_texture, ImVec2(image_width, image_height));
+
 			ImGui::SameLine();
 
 			if (ImGui::Button("毕业路径")) {

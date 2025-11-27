@@ -7,7 +7,7 @@
 
 
 #include "slcReader.h"
-
+#include "stb_image.h"
 static const float galvanometerRatio = 5882.f;
 static const float nextMachine = 375.f;
 
@@ -70,6 +70,14 @@ struct ScanLine {
 	ScanLine(Clipper2Lib::Path64 path64, float power, float speed, float delay) :path64(path64), power(power), speed(speed), delay(delay) {};
 };
 using ScanLines = std::vector<ScanLine>;
+
+
+struct Cube3D {
+	float x_max = -FLT_MAX, x_min = FLT_MAX, y_max = -FLT_MAX, y_min = FLT_MAX, z_min = FLT_MAX, z_max = -FLT_MAX;
+	inline float xlength()const { return x_max - x_min; }
+	inline float ylength()const { return y_max - y_min; }
+	inline float zlength()const { return z_max - z_min; }
+};
 
 void Paths64RatioConvert(Clipper2Lib::Paths64& path, double ratio);
 void VariPathssConvert(VariPathss& vpss, double ratio);
@@ -148,3 +156,21 @@ inline void LineCompensation( Clipper2Lib::Paths64& p,int64_t length) {
 
 inline float SlowInterpolation(float fp) { return -fp * fp + 2 * fp; }
 
+inline Cube3D GetCube(const CLayers& clayers) {
+	assert(clayers.size());
+	Cube3D cube;
+	cube.z_min = clayers[0].zmin;
+	cube.z_max = clayers.back().zmin;
+
+	for (const auto& layer : clayers) {
+		for (const auto& bound : layer.bound) {
+			for (const auto& point : bound) {
+				cube.x_min = std::min(point.x, cube.x_min);
+				cube.x_max = std::max(point.x, cube.x_max);
+				cube.y_min = std::min(point.y, cube.y_min);
+				cube.y_max = std::max(point.y, cube.y_max);
+			}
+		}
+	}
+	return cube;
+}
