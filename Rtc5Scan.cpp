@@ -92,6 +92,10 @@ int scanInitial()
 	
 	// Finish
 
+	//Variable delay
+	//set_delay_mode(1, 0, 50 / 10, 10, 588);
+
+	set_delay_mode(1, 0, 50 / 10, 0, 588);
 	return 0;
 }
 int scanInitial(const std::string&rtc_crt_file)
@@ -415,4 +419,64 @@ void VariableSacn(const VariPathss& path, double speed,const int commandNum) {
 		get_status(&busy, &position);
 		Sleep(20);
 	} while (busy);
+}
+
+int Scan(const ScanLines& lines){
+	unsigned int busy, position;
+	do
+	{
+		get_status(&busy, &position);
+	} while (busy);
+	int counter = 0;
+
+	set_start_list(1);
+	
+	static int64_t cur_x, cur_y;
+
+	for (auto& i : lines) {
+		
+		double speedset = i.speed / 1000 * 5882;
+		set_mark_speed(speedset);
+		
+		const auto& path = i.path64;
+		assert(path.size() > 0);
+		if (path.front().x != cur_x && path.front().y != cur_y) {
+			jump_abs(path.front().x, path.front().y);
+			cur_x = path.front().x;
+			cur_y = path.back().y;
+		}
+		for (int j = 1; j < path.size();j++) {
+			const int commandNum = 8000;
+			if (counter > commandNum)
+			{
+				counter = 0;
+				
+				set_end_of_list();
+				execute_list(1U);
+
+				do
+				{
+					get_status(&busy, &position);
+				} while (busy);
+				set_start_list(1);
+
+
+			}
+			int energy = 7.536 * i.power + 304.41;
+			write_da_1_list(energy);
+
+			mark_abs(path[j].x, path[j].y);
+			cur_x = path[j].x;
+			cur_y = path[j].y;
+			counter += 2;
+		}
+	}
+
+	set_end_of_list();
+	execute_list(1U);
+	do
+	{
+		get_status(&busy, &position);
+	} while (busy);
+	return 0;
 }

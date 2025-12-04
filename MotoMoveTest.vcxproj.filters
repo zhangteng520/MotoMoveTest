@@ -74,6 +74,9 @@
     <ClCompile Include="stb_image.cpp">
       <Filter>file</Filter>
     </ClCompile>
+    <ClCompile Include="Socket.cpp">
+      <Filter>Control</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="control.h">
@@ -147,6 +150,9 @@
     </ClInclude>
     <ClInclude Include="stb_image.h">
       <Filter>file</Filter>
+    </ClInclude>
+    <ClInclude Include="Socket.h">
+      <Filter>Control</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

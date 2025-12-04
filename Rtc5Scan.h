@@ -24,3 +24,5 @@ int scanInitial();
 int scanInitial(const std::string& rtc_crt_file);
 int scanLines(int layers);
 int scanFree();
+
+int Scan(const ScanLines& lines);

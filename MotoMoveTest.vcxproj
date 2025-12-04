@@ -184,6 +184,7 @@
     <ClInclude Include="Render.h" />
     <ClInclude Include="Rtc5Scan.h" />
     <ClInclude Include="slcReader.h" />
+    <ClInclude Include="Socket.h" />
     <ClInclude Include="stb_image.h" />
     <ClInclude Include="tool.h" />
     <ClInclude Include="Voxelization.h" />
@@ -210,6 +211,7 @@
     <ClCompile Include="Manufacturing.cpp" />
     <ClCompile Include="Rtc5Scan.cpp" />
     <ClCompile Include="slcReader.cpp" />
+    <ClCompile Include="Socket.cpp" />
     <ClCompile Include="stb_image.cpp" />
     <ClCompile Include="voxelization.cpp" />
   </ItemGroup>
