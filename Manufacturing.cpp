@@ -5,18 +5,22 @@
 #include<chrono>
 #include <omp.h>
 #include <math.h>
+#include <thread>
 
 #include"Manufacturing.h"
 #include"Voxelization.h"
 #include"control.h"
-
+#include "Socket.h"
 
 void ScanSingle(float power, float speed);
-void MultiPartsPrint(ScanParamter scanparameter, std::vector<CLayers> clayerss, bool IsStimulate, std::atomic<bool>&ProcessFlag) {
+void MultiPartsPrint(const ScanParamter& scanparameter, std::vector<CLayers> clayerss, bool IsStimulate, std::atomic<bool>&ProcessFlag) {
 	if (!IsStimulate) {
 		Axis_Move(C, 0);
 		scanInitial();
 		Axis_Move(C, 311);
+	}
+	if (scanparameter.Gobal.IsThermalImager) {
+		ThermalConnector::init();
 	}
 	std::ofstream outputFile2("MarkAndJump3.csv");
 	if (!outputFile2)
@@ -83,7 +87,7 @@ void MultiPartsPrint(ScanParamter scanparameter, std::vector<CLayers> clayerss, 
 		Z_Current += scanparameter.Gobal.打印层厚;
 		for (int partnum = 0; partnum < clayerss.size(); partnum++) {
 			if ((Z_Current - 1e-3) > clayerss[partnum].back().zmin
-				|| (Z_Current) < clayerss[partnum].front().zmin)
+				|| (Z_Current) < clayerss[partnum].front().zmin||!scanparameter.Part[partnum].IsProcess)
 				continue;
 			//计算零件的层号
 			const auto& para = scanparameter.Part[partnum];
@@ -128,7 +132,7 @@ void MultiPartsPrint(ScanParamter scanparameter, std::vector<CLayers> clayerss, 
 				Clipper2Lib::Paths64 fill, contour;
 				int a = scanparameter.Part[partnum].Fill.旋转角度;
 				double rotate = (a * layer_index) % 360;
-				ZigZagPlaning(clayerss[partnum][layer_index].bound, scanparameter.Part[partnum].Fill.间隙,
+				Paths64Planing(clayerss[partnum][layer_index].bound, scanparameter.Part[partnum].Fill.间隙,
 					scanparameter.Gobal.光斑半径补偿, rotate, AirOutlet::Right,fill, contour);
 				if(fill.size()!=0)
 					scanFill(fill, scanparameter.Part[partnum].Fill.功率, scanparameter.Part[partnum].Fill.速度);
@@ -171,7 +175,21 @@ void MultiPartsPrint(ScanParamter scanparameter, std::vector<CLayers> clayerss, 
 				}
 				entityArea += abs(Clipper2Lib::Area(contour[0]) / 5882.f / 5882.f);
 			}
+			else if (scanparameter.Part[partnum].scanmode == ScanMode::能场调控) {
+				auto& mpara = scanparameter.Part[partnum];
+				int p_index = layer_index / 25;
+				std::string picture_path = mpara.Kernel.tmp_result_path+"/" + std::to_string(p_index) + ".png";
+				
 
+				ScanLines lines = ThermalImageToScanLines(clayerss[partnum], layer_index, mpara.Kernel.间隙, mpara.Kernel.power_high, mpara.Kernel.power_low, mpara.Kernel.速度, picture_path.c_str(), 1);
+
+				if(!IsStimulate)
+					Scan(lines);
+				else {
+					if(layer_index%25==0)
+						ShowScanLinesSVG(lines, mpara.Kernel.power_low, mpara.Kernel.power_high,1.2f);
+				}
+			}
 			else if (scanparameter.Part[partnum].scanmode == ScanMode::卷积核) {
 				std::vector<Clipper2Lib::Paths64> contour;
 				Clipper2Lib::Paths64 fill;
@@ -217,7 +235,7 @@ void MultiPartsPrint(ScanParamter scanparameter, std::vector<CLayers> clayerss, 
 		}
 
 
-		ScanSingle(120, 1000);
+		//ScanSingle(120, 1000);
 		if (layer_Gobal_index == ZLayersMax)
 			break;
 		auto endTime1 = std::chrono::steady_clock::now();
@@ -230,9 +248,21 @@ void MultiPartsPrint(ScanParamter scanparameter, std::vector<CLayers> clayerss, 
 			addThickness = scanparameter.Gobal.打印层厚;
 		//运动
 		if (!IsStimulate) {
+
 			Z_F_move(-0.5 - scanparameter.Gobal.打印层厚, -0.5);
 			Axis_Move(C, -310);
-			Z_F_move(0.5, 0.5 + 2 * scanparameter.Gobal.打印层厚 + addThickness );
+			Z_F_move(0.5, 0.5 + scanparameter.Gobal.供粉系数 * scanparameter.Gobal.打印层厚 );
+
+			//热像仪记录
+			if (scanparameter.Gobal.IsThermalImager)
+			{
+				auto doSnapShot = [layer_Gobal_index](double interval) {
+					Sleep(interval);
+					ThermalConnector::sendMessage(std::to_string(layer_Gobal_index).c_str());
+					};
+				std::thread(doSnapShot, scanparameter.Gobal.热像仪记录间隔时间_铺粉).detach();
+
+			}
 			Axis_Move(C, 310);
 		}
 
@@ -249,7 +279,9 @@ void MultiPartsPrint(ScanParamter scanparameter, std::vector<CLayers> clayerss, 
 		outputFile << layer_Gobal_index << "," << duration1.count() << "," << duration3.count() << std::endl;
 		std::cout << "wholeLayers" << ZLayersMax << ". " << "layer: " << layer_Gobal_index << " has finished" << std::endl;
 	}
-	
+	if (scanparameter.Gobal.IsThermalImager) {
+		ThermalConnector::exit();
+	}
 	scanFree();
 	if (IsStimulate) {
 		std::cout << "Total Precess Time :" << timeTotal / 3600 << std::endl;
@@ -890,7 +922,7 @@ void rgb_to_hsv(float r, float g, float b, float* h, float* s, float* v) {
 struct RGb {
 	unsigned char r, g, b;
 };
-ScanLines ThermalImageToScanLines(const CLayers& layer, int height_index,float interval,float powerMax,float powerMin,float speed, const char* image_path,const float voxelsize) {
+ScanLines ThermalImageToScanLines(const CLayers& layer, int height_index,float interval,float powerMax,float powerMin,float speed, const char* image_path,const float voxelsize,bool IsUniform) {
 	int width, height, channels;
 	ScanLines ret;
 	// 加载图片
@@ -945,6 +977,7 @@ ScanLines ThermalImageToScanLines(const CLayers& layer, int height_index,float i
 
 	auto PathMapping = [&](const Clipper2Lib::Paths64 p)
 		{
+			double power_min = 1e9; double power_max = -1;
 			for (const auto& i : p) {
 				for(int j = 0 ; j < i.size()-1 ;j++){
 					const double devide = 588.2;
@@ -1000,11 +1033,15 @@ ScanLines ThermalImageToScanLines(const CLayers& layer, int height_index,float i
 						float h, s, v;
 						rgb_to_hsv(r / 255.f, g / 255.f, b / 255.f, &h, &s, &v);
 
-						float factor = (h_max - h)/(h_max-h_min);
-						if (factor < 0) {
+						float factor = IsUniform?((h_max-h)/(h_max-h_min)) : ((0.7 - h) / (0.7));
+						if (factor < 0||factor >1) {
 							throw "error";
 						}
-						ScanLine line(path64, (1-factor)*(powerMax-powerMin)+powerMin, speed);
+						double line_power = (1 - factor) * (powerMax - powerMin) + powerMin;
+						power_min = std::min(line_power, power_min);
+						power_max = std::max(line_power, power_max);
+
+						ScanLine line(path64, line_power, speed);
 						ret.push_back(line);
 						
 						
@@ -1015,11 +1052,43 @@ ScanLines ThermalImageToScanLines(const CLayers& layer, int height_index,float i
 					}
 				}
 			}
+			std::cout << "Power_Max: " << power_max << std::endl;
+			std::cout << "Power_Min: " << power_min << std::endl;
 		};
 
 	PathMapping(fill);
-	PathMapping(contour);
+	//PathMapping(contour);
 	// 非常重要：释放图像数据占用的内存
 	stbi_image_free(image_data);
+
+	
 	return ret;
+}
+
+
+
+double TimeOfPath(const Clipper2Lib::Paths64& p, double markspeed,double jumpspeed) {
+	double time_ = 0;
+	for (int i = 0; i < p.size(); i++) {
+		for (int j = 0; j < p[i].size() - 1; j++) {
+			time_ += DisTwoPoints(p[i][j], p[i][j + 1]) / markspeed;
+		}
+		if (i >= 1) {
+			time_ += DisTwoPoints(p[i - 1].back(), p[i].front())/jumpspeed;
+		}
+	}
+	return time_;
+}
+
+double TimeOfPath(const ScanLines& p, double markspeed, double jumpspeed) {
+	double time_ = 0;
+	for (int i = 0; i < p.size(); i++) {
+		for (int j = 0; j < p[i].path64.size()-1; j++) {
+			time_ += DisTwoPoints(p[i].path64[j], p[i].path64[j + 1]) / markspeed;
+		}
+		if (i >= 1) {
+			time_ += DisTwoPoints(p[i - 1].path64.back(), p[i].path64.front()) / jumpspeed;
+		}
+	}
+	return time_;
 }

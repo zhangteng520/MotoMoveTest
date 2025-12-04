@@ -6,7 +6,7 @@
 
 #include"control.h"
 #include"mainUI.h"
-
+#include "file.h"
 #pragma comment(lib, "Dbghelp.lib")
 
 using namespace std;
@@ -20,18 +20,20 @@ int main()
 	//(*write()).MW12_12_14.C轴运动结束信号 = 1;
 	//bool moveStopFlag = (*(uint16_t*)(&get().MW12_12_14) & (1 << (12 + 1 ))) >> ( 12 + 1 );
 	//std::cout << moveStopFlag << std::endl;
-	ModbusInitial();
+	
 	//加入读取寄存器的线程
-	thread t5(Modbus);
-	thread t2(ReadRegister);
+    if (getCurrentUserName() != "zhang") {
+        ModbusInitial();
+        thread(Modbus).detach();
+        thread(ReadRegister).detach();
+    }
 	//加入UI刷新线程
 	thread t1(showUI);
 	//thread t3(ShowUICOMMand);
 	//加入运动控制台线程
 	//thread t4(MoveCom);
 	//this_thread::sleep_for(chrono::milliseconds(3000));
-	t5.join();
-	t2.join();
+
 	t1.join();
 	//t3.join();
 	//t4.join();

@@ -24,6 +24,7 @@
 #include "tool.h"
 #include "game.h"
 #include "Render.h"
+#include "Socket.h"
 #pragma execution_character_set("utf-8") 
 
 using namespace Clipper2Lib;
@@ -55,34 +56,17 @@ inline GLuint LoadTextureFromFile(std::vector<unsigned char >& data, int& width,
 
 	return texture;
 }
-// ImGui 中绘制
-inline void RenderImGuiImage(std::vector<unsigned char>& data, int& img_w, int& img_h, bool* changed) {
-	static GLuint my_texture = 0;
-	if (my_texture == 0 && data.size()) {
-		my_texture = LoadTextureFromFile(data, img_w, img_h);
-	}
-	else if (my_texture != 0 && *changed && data.size()) {
-		glDeleteTextures(1, &my_texture);
-		my_texture = 0;
-		my_texture = LoadTextureFromFile(data, img_w, img_h);
-		*changed = false;
-	}
 
-	if (my_texture) {
-		//ImGui::Text("图像预览:");
-		ImGui::Image((ImTextureID)(intptr_t)my_texture, ImVec2(img_w, img_h));
-	}
-}
 int SavePictureToCSV() {
 	const char* inputFile = "G:\\39.jpg";
-	const char* outputCSV = "G:\\output3.csv";
+	const char* outputCSV = "G:\\output_rgba.csv";
 	int width, height, channels;
-	unsigned char* data = stbi_load(inputFile, &width, &height, &channels, 0);
+	unsigned char* data = stbi_load(inputFile, &width, &height, &channels, 4);
 	if (!data) {
 		std::cerr << "Failed to load image!\n";
 		return 1;
 	}
-
+	channels = 4;
 	std::cout << "Loaded image: " << width << " x " << height
 		<< ", channels = " << channels << "\n";
 
@@ -102,9 +86,9 @@ int SavePictureToCSV() {
 			int R = data[idx + 0];
 			int G = (channels >= 2) ? data[idx + 1] : 0;
 			int B = (channels >= 3) ? data[idx + 2] : 0;
-
+			int a = data[idx + 3];
 			// 单元格格式： R G B
-			csv << R << " " << G << " " << B;
+			csv << R << " " << G << " " << B << " " <<a;
 
 			if (x < width - 1) csv << ",";  // CSV 列分隔
 		}
@@ -120,7 +104,7 @@ int SavePictureToCSV() {
 GLuint LoadTextureFromFile(const char* filename, int* out_width, int* out_height)
 {
 	int width, height, channels;
-	unsigned char* data = stbi_load(filename, &width, &height, &channels, 0);
+	unsigned char* data = stbi_load(filename, &width, &height, &channels, 4);
 	if (!data) {
 		printf("Failed to load image: %s\n", filename);
 		return 0;
@@ -138,8 +122,8 @@ GLuint LoadTextureFromFile(const char* filename, int* out_width, int* out_height
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
-	glTexImage2D(GL_TEXTURE_2D, 0, format, width, height, 0,
-		format, GL_UNSIGNED_BYTE, data);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0,
+		GL_RGBA, GL_UNSIGNED_BYTE, data);
 
 	stbi_image_free(data);
 
@@ -148,7 +132,25 @@ GLuint LoadTextureFromFile(const char* filename, int* out_width, int* out_height
 
 	return texture_id;
 }
+static GLuint LoadTexture(const char* filename) {
+	int width, height, channels;
+	unsigned char* data = stbi_load(filename, &width, &height, &channels, 4);
 
+	if (!data) {
+		printf("Failed to load image: %s\n", stbi_failure_reason());
+		return 0;
+	}
+	GLuint texture;
+	glGenTextures(1, &texture);
+	glBindTexture(GL_TEXTURE_2D, texture);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	//glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+	//glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
+	stbi_image_free(data);
+	return texture;
+}
 void ShowVectorPlotDemo()
 {
 	plot.Begin("2D Vector Plot", ImVec2(1200,900 ));
@@ -869,9 +871,13 @@ int showUI()
 
 				ImGui::Text("全局变量");
 				ImGui::InputDouble("打印层厚", &thickness,0.01f ,0.0,"%.2f");
+				ImGui::InputDouble("供粉系数", &scanparameter.Gobal.供粉系数, 0.1f, 0.0, "%.1f");
 				ImGui::InputDouble("光斑半径补偿", &ratioCompensation, 0.01f, 0.0, "%.2f");
 				ImGui::InputDouble("氧气含量上限", &oxygenratio, 0.01f, 0.0, "%.2f");
 				ImGui::InputDouble("腔体压力", &ChamberPressure, 1000.0f, 0.0, "%.1f");
+				ImGui::Checkbox("热像仪记录", &scanparameter.Gobal.IsThermalImager);
+				ImGui::SameLine();
+				ImGui::InputDouble("铺粉记录间隔时间", &scanparameter.Gobal.热像仪记录间隔时间_铺粉, 1.f, 0.0, "%.2f");
 				ImGui::Text("    ");
 				
 				if (numbers > 0) {
@@ -880,8 +886,9 @@ int showUI()
 					ImGui::Text("文件名：%s", gb2312_to_utf8(Components[current].fileName).c_str()); //todo中文乱码
 					ImGui::Text("当前文件层数：%d", Components[current].clayers.size()-1);
 					
+					ImGui::Checkbox("是否加工", &scanparameter.Part[current].IsProcess);
 					if (Components[current].IsSupport == 0) {
-						ImGui::SliderInt("填充模式", (int*)&scanparameter.Part[current].scanmode, 0U, 6);
+						ImGui::SliderInt("填充模式", (int*)&scanparameter.Part[current].scanmode, 0U, 7);
 						ImGui::Text("填充模式：%s", gb2312_to_utf8(enumToString(scanparameter.Part[current].scanmode)).c_str());
 
 						if (scanparameter.Part[current].scanmode == ScanMode::Zigzag ||
@@ -940,7 +947,9 @@ int showUI()
 							}
 							ImGui::PopItemWidth();
 						}
-						if (scanparameter.Part[current].scanmode == ScanMode::卷积核) {
+						if (scanparameter.Part[current].scanmode == ScanMode::卷积核||
+							scanparameter.Part[current].scanmode == ScanMode::能场调控
+							) {
 							ImGui::Text("    ");
 							ImGui::Text("卷积核参数");
 							ImGui::PushItemWidth(200.0f);
@@ -957,6 +966,16 @@ int showUI()
 							ImGui::InputInt("卷积核层数##c", &scanparameter.Part[current].Kernel.num_z);
 							ImGui::InputDouble("扫描矢量长度##c", &scanparameter.Part[current].Kernel.scanLenth, 0.0f, 0.0, " % .2f");
 							
+							
+							ImGui::Text("温度场结果路径: %s", gb2312_to_utf8(scanparameter.Part[current].Kernel.tmp_result_path).c_str());
+							ImGui::SameLine();
+							if (ImGui::Button("选择路径")) {
+								char filename[256];
+								SelectOpenFiles(filename);
+								std::filesystem::path current_file = filename;
+								
+								scanparameter.Part[current].Kernel.tmp_result_path = current_file.parent_path().string();;
+							}
 							ImGui::Checkbox("轮廓参数", &scanparameter.Part[current].Contour.IsContour);
 							if (scanparameter.Part[current].Contour.IsContour) {
 								ImGui::InputDouble("功率高##d", &scanparameter.Part[current].Contour.功率, 0.0f, 0.0, "%.1f");
@@ -1042,7 +1061,7 @@ int showUI()
 
 			}
 			
-			if (ImGui::Button("路径规划##dd"))                        // Buttons return true when clicked (most widgets return true when edited/activated)
+			if (ImGui::Button("路径规划##dcccd"))                        // Buttons return true when clicked (most widgets return true when edited/activated)
 			{
 				char filename[256];
 				SelectOpenFiles(filename);
@@ -1053,11 +1072,11 @@ int showUI()
 				Clipper2Lib::Paths64 fill, contour;
 				int a = 67;
 				double rotate = (a * layers + 0) % 360;
-				Paths64Planing(clayers[layers].bound, 2,
+				Paths64Planing(clayers[995].bound, 0.08,
 					0.1, rotate, AirOutlet::Right, fill, contour);
-
-				if (number < fill.size())
-					fill.resize(number);
+				std::cout << TimeOfPath(fill, 1000, 3000) << std::endl;
+				/*if (number < fill.size())
+					fill.resize(number);*/
 
 				SvgWriter svg;//改色修改pencolor
 					svg.AddPaths(contour, false, FillRule::Negative, 0x00000000, 0xFFFF0000, 5, false);
@@ -1069,11 +1088,14 @@ int showUI()
 				//SvgAddOpenSubject(svg, fill, fr, false);
 				SvgSaveToFile(svg,  "1.svg", 900, 1800, 20);
 				System("1.svg");
-
+				
+				scanInitial();
+				scanFill(fill, 100, 1000);
+				scanFree();
 		
 			}
 			ImGui::SameLine();
-			static int image_width, image_height, channels; bool flagChange = true; static GLuint my_texture;
+			static int image_width, image_height, channels; bool flagChange = true; static GLuint my_texture11;
 			static std::vector<unsigned char> ImageData;
 			if (ImGui::Button("变参数打印")) {
 				char filename[256],image_file[256];
@@ -1082,18 +1104,35 @@ int showUI()
 				slcReader.init(filename);
 				CLayers clayers = slcReader.layers();
 
-				//SelectOpenFiles(image_file);
-				ShowScanLinesSVG(ThermalImageToScanLines(clayers, 975, 2, 125, 50, 1000, "G:\\39.jpg", 1));
+				SelectOpenFiles(image_file);
+				ScanLines lines = ThermalImageToScanLines(clayers, 995, 0.08, 125, 50, 1000, image_file, 1, true);
+				ShowScanLinesSVG(lines);
 				
-				unsigned char *p = stbi_load("G:\\39.png", &image_width, &image_height, &channels, 3);
-				//my_texture =LoadTextureFromFile("G:\\59.png", &image_width, &image_height);
-				SavePictureToCSV();
+				std::cout << TimeOfPath(lines, 1000, 3000) << std::endl;
+				
+				//scanInitial();
+				//Scan(ThermalImageToScanLines(clayers, 995, 0.08, 125, 50, 1000, image_file, 1,true));
+				//scanFree();
+				
+				//unsigned char *p = stbi_load("G:\\s.jpg", &image_width, &image_height, &channels, 0);
+				my_texture11 = LoadTexture("G:\\39.jpg");
+				//SavePictureToCSV();
 				
 			}
 			
-			ImGui::Image((ImTextureID)(intptr_t)my_texture, ImVec2(image_width, image_height));
+			ImGui::Image((ImTextureID)(intptr_t)my_texture11, ImVec2(61, 61));
+			static char thermal_send_buf[1024];
+			ImGui::InputText("消息", thermal_send_buf, 1024, 0); ImGui::SameLine();
+			if (ImGui::Button("初始化")) {
+				ThermalConnector::init();
+			}ImGui::SameLine();
+			if (ImGui::Button("发送")) {
+				ThermalConnector::sendMessage(thermal_send_buf);
+			}ImGui::SameLine();
 
-			ImGui::SameLine();
+			if (ImGui::Button("初始化")) {
+				ThermalConnector::init();
+			}
 
 			if (ImGui::Button("毕业路径")) {
 
@@ -1447,7 +1486,7 @@ int showUI()
 						clayerss.push_back(i.clayers);
 					}
 					ProcessFlag.store(true, std::memory_order_release);
-					std::thread th2(MultiPartsPrint, scanparameter, (clayerss), true,std::ref(ProcessFlag));
+					std::thread th2(MultiPartsPrint, std::ref(scanparameter), (clayerss), true,std::ref(ProcessFlag));
 					th2.detach();
 				}
 			}
@@ -1461,10 +1500,10 @@ int showUI()
 						clayerss.push_back(i.clayers);
 					}
 					ProcessFlag.store(true, std::memory_order_release);
-					std::thread th2(MultiPartsPrint, scanparameter,(clayerss),false,std::ref(ProcessFlag));
+					std::thread th2(MultiPartsPrint, std::ref(scanparameter),(clayerss),false,std::ref(ProcessFlag));
 					th2.detach();
-					std::thread th3(OxygenControl, scanparameter.Gobal.氧含量上限,(int)scanparameter.Gobal.腔体压力上限);
-					th3.detach();
+					//std::thread th3(OxygenControl, scanparameter.Gobal.氧含量上限,(int)scanparameter.Gobal.腔体压力上限);
+					//th3.detach();
 				}
 			}
 			ImGui::SameLine();

@@ -9,7 +9,8 @@ enum ScanMode {
 	线状支撑,
 	块状支撑,
 	卷积核,
-	条带路径
+	条带路径,
+	能场调控
 };
 const std::string scanModeStrings[] = {
 	"光栅扫描",
@@ -18,7 +19,8 @@ const std::string scanModeStrings[] = {
 	"线状支撑",
 	"块状支撑",
 	"卷积核",
-	"条带扫描"
+	"条带扫描",
+	"能场调控"
 }; 
 
 // 将枚举值转换为字符串
@@ -27,6 +29,7 @@ inline std::string enumToString(ScanMode mode) {
 }
 struct PartVarible {
 	ScanMode scanmode = 最短空行程;
+	bool IsProcess = true;
 	struct {
 		double 间隙=0.08;
 		double 旋转角度=67;
@@ -74,6 +77,7 @@ struct PartVarible {
 		int num_xy =5;
 		int num_z = 12;
 		double  scanLenth=0.1;
+		std::string tmp_result_path;
 	}Kernel;
 	struct {
 		double 条带宽度 = 20;
@@ -87,10 +91,14 @@ struct PartVarible {
 struct ScanParamter {
 	struct {
 		double 打印层厚;
+		double 供粉系数 = 2;
 		double 光斑半径补偿;
 		double 氧含量上限;
 		double 腔体压力上限;
 		double 风机压力;
+		double 热像仪记录间隔时间_铺粉 = 3;
+		bool IsThermalImager = false;
+
 	}Gobal;
 	std::vector<PartVarible> Part;
 	struct {
@@ -106,7 +114,7 @@ struct ScanParamter {
 };
 //extern std::atomic<bool>ProcessFlag;
 //void Manufacturing(CLayers clayers, float interval, double rotate_angle, float Z_Delta);
-void MultiPartsPrint(ScanParamter scanparameter, std::vector<CLayers> clayerss, bool IsStimulate, std::atomic<bool>& ProcessFlag);
+void MultiPartsPrint(const ScanParamter& scanparameter, std::vector<CLayers> clayerss, bool IsStimulate, std::atomic<bool>& ProcessFlag);
 //void OxygenControl(float oxygenRatio, int charmberPressure);
 void ScanCircles(int nums_x, int nums_y, float interval_x, float interval_y, float radius, float power, float speed);
 void ScanLiness(int nums_x, int nums_y, float interval_x, float interval_y, float radius, float power, float speed);
@@ -124,7 +132,9 @@ void ScanCrossLines(int nums_x, int nums_y, float interval_x, float interval_y, 
 
 
 
-ScanLines ThermalImageToScanLines(const CLayers& layer, int height_index, float interval, float powerMax, float powerMin, float speed, const char* image_path, const float voxelsize);
+ScanLines ThermalImageToScanLines(const CLayers& layer, int height_index, float interval, float powerMax, float powerMin, float speed, const char* image_path, const float voxelsize,bool IsUniform = false);
 
 
 
+double TimeOfPath(const Clipper2Lib::Paths64& p, double markspeed, double jumpspeed = 3000);
+double TimeOfPath(const ScanLines& p, double markspeed, double jumpspeed = 3000);
