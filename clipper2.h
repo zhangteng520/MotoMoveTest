@@ -121,7 +121,7 @@ void GetMarkJumpTime(const Clipper2Lib::Paths64& fill, const Clipper2Lib::Paths6
 void ShowPaths64(const Clipper2Lib::Paths64& paths);
 void Connect(const Clipper2Lib::Paths64& paths, Clipper2Lib::Paths64& output);
 void ShowSvg(const Clipper2Lib::Paths64& fill, const Clipper2Lib::Paths64& contour);
-void ShowScanLinesSVG(const ScanLines& lines);
+void ShowScanLinesSVG(const ScanLines& lines,float power_min =50,float power_max =125,float penwidth = 5.f);
 //route
 void AutoFeed(double AreaPlate, double AreaEntity, double layerThickness, double& addThickness);
 //这里的boundary会被修改

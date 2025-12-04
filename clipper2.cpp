@@ -1216,17 +1216,37 @@ static inline glm::vec4 GetColor(float cur, float min, float max) {
     glm::vec4 color1 = { color.Value.x,color.Value.y,color.Value.z,1.f };
     return color1;
 }
-void ShowScanLinesSVG(const ScanLines& lines) {
+void ShowScanLinesSVG(const ScanLines& lines,float set_power_min,float set_power_max,float pen_width) {
     SvgWriter svg;//¸ÄÉ«ÐÞ¸Äpencolor
    //
     FillRule fr = FillRule::Negative;
+    float real_power_min = 1e9;
+    float real_power_max = -1;
+    int64_t x_min = 1e9;
+    int64_t x_max = -1;
+    int64_t y_min = 1e9;
+    int64_t y_max = -1e9;
     for (auto& i : lines) {
-        unsigned int  r = GetColor(i.power, 50, 125).r*255;
-        unsigned int  g = GetColor(i.power, 50, 125).g*255;
-        unsigned int  b = GetColor(i.power, 50, 125).b*255;
+        real_power_max = std::max(real_power_max, i.power);
+        real_power_min = std::min(real_power_min, i.power);
+        x_min = std::min(i.path64.front().x, x_min);
+        x_max = std::max(i.path64.front().x, x_max);
+        y_min = std::min(i.path64.front().y, y_min);
+        y_max = std::max(i.path64.front().y, y_max);
+        unsigned int  r = GetColor(i.power, set_power_min, set_power_max).r*255;
+        unsigned int  g = GetColor(i.power, set_power_min, set_power_max).g*255;
+        unsigned int  b = GetColor(i.power, set_power_min, set_power_max).b*255;
         unsigned int color = (0xFF << 24) + (r << 16) + (g << 8) + b;
-        svg.AddPath(i.path64, true, FillRule::Negative, 0x00000000, color, 5, false);
+        svg.AddPath(i.path64, true, FillRule::Negative, 0x00000000, color, pen_width, false);
     }
+    std::string s1 = "set_power_max:" + std::to_string(set_power_max);
+    std::string s2 = "set_power_min:" + std::to_string(set_power_min);
+    std::string s3 = "real_power_max:" + std::to_string(real_power_max);
+    std::string s4 = "real_power_min:" + std::to_string(real_power_min);
+    svg.AddText(s1, 0xFFFF0000, 10.0, 0.8 * (x_max- x_min), y_min + 0.8 * (y_max-y_min));
+    svg.AddText(s2, 0xFFFF0000, 10.0, 0.8 * (x_max - x_min), y_min + 0.75 * (y_max - y_min));
+    svg.AddText(s3, 0xFFFF0000, 10.0, 0.8 * (x_max - x_min), y_min + 0.7 * (y_max - y_min));
+    svg.AddText(s4, 0xFFFF0000, 10.0, 0.8 * (x_max - x_min),y_min + 0.65 * (y_max - y_min));
     //SvgAddOpenSubject(svg, fill, fr, false);
     SvgSaveToFile(svg, "1.svg", 900, 1800, 20);
     System("1.svg");

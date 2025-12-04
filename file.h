@@ -11,7 +11,7 @@
 //编码转换
 #include <locale>
 #include <codecvt>
-std::string gb2312_to_utf8(std::string const& strGb2312)
+inline std::string gb2312_to_utf8(std::string const& strGb2312)
 {
 	std::vector<wchar_t> buff(strGb2312.size());
 #ifdef _MSC_VER
@@ -37,7 +37,7 @@ std::string gb2312_to_utf8(std::string const& strGb2312)
 
 }
 
-std::string utf8_to_gb2312(std::string const& strUtf8)
+inline std::string utf8_to_gb2312(std::string const& strUtf8)
 {
 	std::wstring_convert<std::codecvt_utf8<wchar_t>> cutf8;
 	std::wstring wTemp = cutf8.from_bytes(strUtf8);
@@ -64,7 +64,7 @@ std::string utf8_to_gb2312(std::string const& strUtf8)
 }
 
 
-const bool SelectOpenFiles(char path[])//获取的文件名是gb2312编码
+inline const bool SelectOpenFiles(char path[])//获取的文件名是gb2312编码
 {
 	char temp[256];
 	GetCurrentDirectoryA(256, temp);
@@ -112,7 +112,7 @@ const bool SelectOpenFiles(char path[])//获取的文件名是gb2312编码
 	return false;
 }
 
-std::string ConvertLPWSTRToString(LPWSTR lpwstr) {
+inline std::string ConvertLPWSTRToString(LPWSTR lpwstr) {
 	int bufferSize = WideCharToMultiByte(CP_UTF8, 0, lpwstr, -1, NULL, 0, NULL, NULL);
 	std::string result(bufferSize, '\0');
 	WideCharToMultiByte(CP_UTF8, 0, lpwstr, -1, &result[0], bufferSize, NULL, NULL);
@@ -121,7 +121,7 @@ std::string ConvertLPWSTRToString(LPWSTR lpwstr) {
 	return result;
 }
 
-const bool SelectOpenFiles(std::vector<std::string>& outFilePaths)//获取的文件名是gb2312编码
+inline const bool SelectOpenFiles(std::vector<std::string>& outFilePaths)//获取的文件名是gb2312编码
 {
 	if (outFilePaths.size() != 0)
 		outFilePaths.clear();
@@ -163,7 +163,7 @@ const bool SelectOpenFiles(std::vector<std::string>& outFilePaths)//获取的文件名
 }
 
 
-bool IsSupport(const std::string& str) {
+inline bool IsSupport(const std::string& str) {
 	// 获取字符串长度
 	size_t len = str.length();
 
@@ -177,4 +177,63 @@ bool IsSupport(const std::string& str) {
 		return true;
 	else
 		return false;
+}
+
+// 获取最后错误信息的字符串（辅助调试）
+inline std::string getLastErrorString() {
+	DWORD errorCode = GetLastError();
+	LPSTR buffer = nullptr;
+
+	// 格式化错误信息
+	FormatMessageA(
+		FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
+		nullptr,
+		errorCode,
+		MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
+		(LPSTR)&buffer,
+		0,
+		nullptr
+	);
+
+	std::string errorMsg(buffer ? buffer : "Unknown error");
+	LocalFree(buffer);  // 释放 FormatMessage 分配的内存
+	return errorMsg;
+}
+
+// -------------------------- 核心功能函数 --------------------------
+/**
+ * @brief 获取当前用户登录名（返回 std::string，多字节编码）
+ * @return 用户名（如 "Administrator"）
+ * @throw std::runtime_error 获取失败时抛出异常（含错误信息）
+ */
+inline std::string getCurrentUserName() {
+	// 1. 初始化缓冲区（UNLEN=256 是用户名最大长度）
+	char buffer[256 + 1] = { 0 };
+	DWORD bufferSize = sizeof(buffer) / sizeof(char);
+
+	// 2. 调用 GetUserNameA（ANSI 版本）
+	if (!GetUserNameA(buffer, &bufferSize)) {
+		std::string errorMsg = "获取用户名失败：" + getLastErrorString();
+		throw std::runtime_error(errorMsg);
+	}
+
+	// 3. 转换为 std::string 并返回
+	return std::string(buffer);
+}
+
+/**
+ * @brief 获取当前用户登录名（返回 std::wstring，宽字符编码，推荐）
+ * @return 用户名（如 L"Administrator"）
+ * @throw std::runtime_error 获取失败时抛出异常
+ */
+inline std::wstring getCurrentUserNameW() {
+	wchar_t buffer[256 + 1] = { 0 };
+	DWORD bufferSize = sizeof(buffer) / sizeof(wchar_t);
+
+	if (!GetUserNameW(buffer, &bufferSize)) {
+		std::string errorMsg = "获取用户名失败：" + getLastErrorString();
+		throw std::runtime_error(errorMsg);
+	}
+
+	return std::wstring(buffer);
 }
