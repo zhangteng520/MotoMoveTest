@@ -1072,9 +1072,9 @@ int showUI()
 				Clipper2Lib::Paths64 fill, contour;
 				int a = 67;
 				double rotate = (a * layers + 0) % 360;
-				Paths64Planing(clayers[995].bound, 0.08,
+				Paths64Planing(clayers[995].bound, 2,
 					0.1, rotate, AirOutlet::Right, fill, contour);
-				std::cout << TimeOfPath(fill, 1000, 3000) << std::endl;
+				std::cout << "Desired Process Time:" << TimeOfPath(fill, 1000, 3000) << std::endl;
 				/*if (number < fill.size())
 					fill.resize(number);*/
 
@@ -1105,17 +1105,17 @@ int showUI()
 				CLayers clayers = slcReader.layers();
 
 				SelectOpenFiles(image_file);
-				ScanLines lines = ThermalImageToScanLines(clayers, 995, 0.08, 125, 50, 1000, image_file, 1, true);
-				ShowScanLinesSVG(lines);
+				ScanLines lines = ThermalImageToScanLines(clayers, 691, 0.08, 180, 100, 1000, image_file, 1, false);
+				ShowScanLinesSVG(lines,100,180);
 				
-				std::cout << TimeOfPath(lines, 1000, 3000) << std::endl;
+				std::cout <<"Desired Process Time:" << TimeOfPath(lines, 1000, 3000) << std::endl;
 				
 				//scanInitial();
 				//Scan(ThermalImageToScanLines(clayers, 995, 0.08, 125, 50, 1000, image_file, 1,true));
 				//scanFree();
 				
 				//unsigned char *p = stbi_load("G:\\s.jpg", &image_width, &image_height, &channels, 0);
-				my_texture11 = LoadTexture("G:\\39.jpg");
+				my_texture11 = LoadTexture(image_file);
 				//SavePictureToCSV();
 				
 			}

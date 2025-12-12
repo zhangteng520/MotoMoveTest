@@ -1212,11 +1212,14 @@ void ShowSvg(const Clipper2Lib::Paths64& fill, const Clipper2Lib::Paths64& conto
 }
 
 static inline glm::vec4 GetColor(float cur, float min, float max) {
+    if (cur<min || cur>max) {
+        throw "error";
+    }
     ImColor color; color.SetHSV(0.7 - 0.7 * SlowInterpolation((cur - min) / (max - min)), 1.f, 1.f);
     glm::vec4 color1 = { color.Value.x,color.Value.y,color.Value.z,1.f };
     return color1;
 }
-void ShowScanLinesSVG(const ScanLines& lines,float set_power_min,float set_power_max,float pen_width) {
+void ShowScanLinesSVG(const ScanLines& lines,float set_power_min,float set_power_max,float pen_width,const std::string svg_name) {
     SvgWriter svg;//¸ÄÉ«ÐÞ¸Äpencolor
    //
     FillRule fr = FillRule::Negative;
@@ -1243,13 +1246,14 @@ void ShowScanLinesSVG(const ScanLines& lines,float set_power_min,float set_power
     std::string s2 = "set_power_min:" + std::to_string(set_power_min);
     std::string s3 = "real_power_max:" + std::to_string(real_power_max);
     std::string s4 = "real_power_min:" + std::to_string(real_power_min);
-    svg.AddText(s1, 0xFFFF0000, 10.0, 0.8 * (x_max- x_min), y_min + 0.8 * (y_max-y_min));
-    svg.AddText(s2, 0xFFFF0000, 10.0, 0.8 * (x_max - x_min), y_min + 0.75 * (y_max - y_min));
-    svg.AddText(s3, 0xFFFF0000, 10.0, 0.8 * (x_max - x_min), y_min + 0.7 * (y_max - y_min));
-    svg.AddText(s4, 0xFFFF0000, 10.0, 0.8 * (x_max - x_min),y_min + 0.65 * (y_max - y_min));
+    svg.AddText(s1, 0xFFFF0000, 10.0, 0.6 * (x_max - x_min), y_min + 0.8 * (y_max-y_min));
+    svg.AddText(s2, 0xFFFF0000, 10.0, 0.6 * (x_max - x_min), y_min + 0.75 * (y_max - y_min));
+    svg.AddText(s3, 0xFFFF0000, 10.0, 0.6 * (x_max - x_min), y_min + 0.7 * (y_max - y_min));
+    svg.AddText(s4, 0xFFFF0000, 10.0, 0.6 * (x_max - x_min),y_min + 0.65 * (y_max - y_min));
     //SvgAddOpenSubject(svg, fill, fr, false);
-    SvgSaveToFile(svg, "1.svg", 900, 1800, 20);
-    System("1.svg");
+    std::string filename = svg_name +".svg";
+    SvgSaveToFile(svg, filename, 900, 1800, 20);
+    System(filename);
 }
 void Paths64RatioConvert(Clipper2Lib::Paths64& path, double ratio) {
     for (auto& i : path) {

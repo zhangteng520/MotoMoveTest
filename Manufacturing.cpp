@@ -148,7 +148,26 @@ void MultiPartsPrint(const ScanParamter& scanparameter, std::vector<CLayers> cla
 				}
 				entityArea += abs(Clipper2Lib::Area(contour) / 5882.f / 5882.f);
 			}
-
+			else if (scanparameter.Part[partnum].scanmode == ScanMode::Zigzag) {
+				Clipper2Lib::Paths64 fill, contour;
+				int a = scanparameter.Part[partnum].Fill.旋转角度;
+				double rotate = (a * layer_index) % 360;
+				ZigZagPlaning(clayerss[partnum][layer_index].bound, scanparameter.Part[partnum].Fill.间隙,
+					scanparameter.Gobal.光斑半径补偿, rotate, AirOutlet::Right, fill, contour);
+				if (fill.size() != 0)
+					scanFill(fill, scanparameter.Part[partnum].Fill.功率, scanparameter.Part[partnum].Fill.速度);
+				if (contour.size() != 0
+					&& scanparameter.Part[partnum].scanmode != ScanMode::块状支撑
+					&& scanparameter.Part[partnum].Contour.IsContour == true) {
+					std::sort(contour.begin(), contour.end(), [](const Clipper2Lib::Path64& a, const Clipper2Lib::Path64& b) {
+						return a[0].x > b[0].x; });
+					scanContour(contour, scanparameter.Part[partnum].Contour.功率, scanparameter.Part[partnum].Contour.速度);
+					if (IsStimulate && fill.size() != 0 && contour.size() != 0) {
+						GetMarkJumpTime(fill, contour, para.Fill.速度, para.Contour.速度, marktime, jumptime);
+					}
+				}
+				entityArea += abs(Clipper2Lib::Area(contour) / 5882.f / 5882.f);
+			}
 			else if (scanparameter.Part[partnum].scanmode == ScanMode::条带路径) {
 				std::vector< Clipper2Lib::Paths64>contour;
 				Clipper2Lib::Paths64 fill,tmp;
@@ -187,7 +206,8 @@ void MultiPartsPrint(const ScanParamter& scanparameter, std::vector<CLayers> cla
 					Scan(lines);
 				else {
 					if(layer_index%25==0)
-						ShowScanLinesSVG(lines, mpara.Kernel.power_low, mpara.Kernel.power_high,1.2f);
+						
+						ShowScanLinesSVG(lines, mpara.Kernel.power_low, mpara.Kernel.power_high,1.2f,std::to_string(layer_index));
 				}
 			}
 			else if (scanparameter.Part[partnum].scanmode == ScanMode::卷积核) {
@@ -957,8 +977,10 @@ ScanLines ThermalImageToScanLines(const CLayers& layer, int height_index,float i
 			}
 		}
 	}
+	// 非常重要：释放图像数据占用的内存
+	stbi_image_free(image_data);
 	// 打印图片信息
-	std::cout << "Image loaded successfully!" << std::endl;
+	std::cout << image_path <<" " << "Image loaded successfully!" << std::endl;
 	std::cout << "Width: " << width << " pixels" << std::endl;
 	std::cout << "Height: " << height << " pixels" << std::endl;
 
@@ -968,7 +990,7 @@ ScanLines ThermalImageToScanLines(const CLayers& layer, int height_index,float i
 
 	//路径规划
 	Clipper2Lib::Paths64 fill, contour;
-	Paths64Planing(layer[height_index].bound,interval, 0.1,(height_index*67)%360 , AirOutlet::Right, fill, contour);
+	ZigZagPlaning(layer[height_index].bound,interval, 0.1,(height_index*67)%360 , AirOutlet::Right, fill, contour);
 	
 	//轮廓首尾相连
 	for (auto& i : contour) {
@@ -1024,16 +1046,22 @@ ScanLines ThermalImageToScanLines(const CLayers& layer, int height_index,float i
 							std::cout << i[j].x << " " << i[j].y << std::endl;
 							throw "error";
 						}
-						int index = (voxel_index_y * width + voxel_index_x)*channels;
-						int r = image_data[index];
-						int g = image_data[index + 1];
-						int b = image_data[index + 2];
+						
+						int r = bitmap[voxel_index_y][voxel_index_x].r;
+						int g = bitmap[voxel_index_y][voxel_index_x].g;
+						int b = bitmap[voxel_index_y][voxel_index_x].b;
 
 
 						float h, s, v;
 						rgb_to_hsv(r / 255.f, g / 255.f, b / 255.f, &h, &s, &v);
 
-						float factor = IsUniform?((h_max-h)/(h_max-h_min)) : ((0.7 - h) / (0.7));
+						float factor = 1.0f;
+						if (IsUniform&&abs(h_max - h_min) >1e-6) {
+							factor =   ((h_max - h) / (h_max - h_min)) ;
+						}
+						else {
+							factor = ((0.7 - h) / (0.7));
+						}
 						if (factor < 0||factor >1) {
 							throw "error";
 						}
@@ -1058,8 +1086,8 @@ ScanLines ThermalImageToScanLines(const CLayers& layer, int height_index,float i
 
 	PathMapping(fill);
 	//PathMapping(contour);
-	// 非常重要：释放图像数据占用的内存
-	stbi_image_free(image_data);
+	
+	
 
 	
 	return ret;
@@ -1071,7 +1099,7 @@ double TimeOfPath(const Clipper2Lib::Paths64& p, double markspeed,double jumpspe
 	double time_ = 0;
 	for (int i = 0; i < p.size(); i++) {
 		for (int j = 0; j < p[i].size() - 1; j++) {
-			time_ += DisTwoPoints(p[i][j], p[i][j + 1]) / markspeed;
+			time_ += DisTwoPoints(p[i][j], p[i][j + 1]) / markspeed/5882.f;
 		}
 		if (i >= 1) {
 			time_ += DisTwoPoints(p[i - 1].back(), p[i].front())/jumpspeed;
@@ -1084,10 +1112,10 @@ double TimeOfPath(const ScanLines& p, double markspeed, double jumpspeed) {
 	double time_ = 0;
 	for (int i = 0; i < p.size(); i++) {
 		for (int j = 0; j < p[i].path64.size()-1; j++) {
-			time_ += DisTwoPoints(p[i].path64[j], p[i].path64[j + 1]) / markspeed;
+			time_ += DisTwoPoints(p[i].path64[j], p[i].path64[j + 1]) / markspeed/5882.f;
 		}
 		if (i >= 1) {
-			time_ += DisTwoPoints(p[i - 1].path64.back(), p[i].path64.front()) / jumpspeed;
+			time_ += DisTwoPoints(p[i - 1].path64.back(), p[i].path64.front()) / jumpspeed/5882.f;
 		}
 	}
 	return time_;
