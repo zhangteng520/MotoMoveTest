@@ -59,7 +59,7 @@ int scanInitial()
 	ErrorCode = select_rtc(rtcCards);
 	stop_execution();  
 
-	ErrorCode = load_correction_file("c:\\home\\YMBuild\\RTC5_pbam\\right2.ct5",   // initialize like "D2_1to1.ct5",
+	ErrorCode = load_correction_file("c:\\home\\YMBuild\\RTC5_pbam\\test_sl3.ct5",   // initialize like "D2_1to1.ct5",
 		1U,  // table; #1 is used by default
 		2U);
 	ErrorCode = load_program_file("c:\\home\\YMBuild\\RTC5_pbam");

@@ -155,16 +155,13 @@ void MultiPartsPrint(const ScanParamter& scanparameter, std::vector<CLayers> cla
 				ZigZagPlaning(clayerss[partnum][layer_index].bound, scanparameter.Part[partnum].Fill.间隙,
 					scanparameter.Gobal.光斑半径补偿, rotate, AirOutlet::Right, fill, contour);
 				if (fill.size() != 0)
-					scanFill(fill, scanparameter.Part[partnum].Fill.功率, scanparameter.Part[partnum].Fill.速度);
+					Scan(Paths64ToScanLines(fill, scanparameter.Part[partnum].Fill.功率, scanparameter.Part[partnum].Fill.速度));
 				if (contour.size() != 0
 					&& scanparameter.Part[partnum].scanmode != ScanMode::块状支撑
 					&& scanparameter.Part[partnum].Contour.IsContour == true) {
 					std::sort(contour.begin(), contour.end(), [](const Clipper2Lib::Path64& a, const Clipper2Lib::Path64& b) {
 						return a[0].x > b[0].x; });
-					scanContour(contour, scanparameter.Part[partnum].Contour.功率, scanparameter.Part[partnum].Contour.速度);
-					if (IsStimulate && fill.size() != 0 && contour.size() != 0) {
-						GetMarkJumpTime(fill, contour, para.Fill.速度, para.Contour.速度, marktime, jumptime);
-					}
+					Scan(Paths64ToScanLines(contour,scanparameter.Part[partnum].Contour.功率,scanparameter.Part[partnum].Contour.速度));
 				}
 				entityArea += abs(Clipper2Lib::Area(contour) / 5882.f / 5882.f);
 			}
@@ -206,7 +203,6 @@ void MultiPartsPrint(const ScanParamter& scanparameter, std::vector<CLayers> cla
 					Scan(lines);
 				else {
 					if(layer_index%25==0)
-						
 						ShowScanLinesSVG(lines, mpara.Kernel.power_low, mpara.Kernel.power_high,1.2f,std::to_string(layer_index));
 				}
 			}

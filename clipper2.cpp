@@ -1255,6 +1255,14 @@ void ShowScanLinesSVG(const ScanLines& lines,float set_power_min,float set_power
     SvgSaveToFile(svg, filename, 900, 1800, 20);
     System(filename);
 }
+ScanLines Paths64ToScanLines(const Clipper2Lib::Paths64& paths,float power,float speed) {
+    ScanLines ret;
+    for (auto& i : paths) {
+        ScanLine line(i, power, speed);
+        ret.push_back(line);
+    }
+    return ret;
+}
 void Paths64RatioConvert(Clipper2Lib::Paths64& path, double ratio) {
     for (auto& i : path) {
         for (auto& j : i) {
@@ -1413,4 +1421,164 @@ void StripPlaning(const CBoundary& boundary, double interval, double compensatio
         RotateAngle(paths64fill, -rotate_angle);
     }
     
+}
+
+
+
+Clipper2Lib::Paths64 ThinwallPlaning(int length)
+{
+    Paths64 dashedPaths;
+    Paths64 gapPaths;
+    // 参数定义
+    double dashLength = 10.0;      // 实线段的长度
+    double gapLength = 10.0;        // 间隙的长度
+    double totalPatternLength = dashLength + gapLength;
+
+    // 计算正方形的四个顶点
+    // 假设以原点为中心
+    int halfLength = length / 2;
+
+    // 正方形的四个顶点（顺时针）
+    std::vector<Point64> squareVertices =
+    {
+        {-halfLength, -halfLength},  // 左下
+        {halfLength, -halfLength},   // 右下
+        {halfLength, halfLength},    // 右上
+        {-halfLength, halfLength}  ,  // 左上
+        { -halfLength, -halfLength }
+    };
+
+    // 遍历正方形的四条边
+    for (int side = 0; side < 4; side++)
+    {
+        // 获取当前边的起点和终点
+        Point64 startPoint = squareVertices[side];
+        Point64 endPoint = squareVertices[(side + 1)];
+        // 计算边的长度（应该是length，但使用实际计算）
+        double edgeLength = std::sqrt(std::pow(endPoint.x - startPoint.x, 2) + std::pow(endPoint.y - startPoint.y, 2));
+        double dirX = (endPoint.x - startPoint.x) / edgeLength;
+        double dirY = (endPoint.y - startPoint.y) / edgeLength;
+        // 计算这条边上可以容纳多少个完整模式,并将浮点数结果强制转换为整数
+        int patternCount = static_cast<int>(edgeLength / totalPatternLength);
+        if (patternCount == 0) patternCount = 1;
+
+
+        for (int patternIdx = 0; patternIdx < patternCount; patternIdx++)
+        {
+            // 计算patternIdx = n个模式的起点和终点
+            double dashStart = patternIdx * totalPatternLength;
+            if (dashStart >= edgeLength) break; // 超出边界安全保护
+            double dashEnd = std::min(dashStart + dashLength, edgeLength); //确保不超过边总长
+
+
+            // 计算实际坐标
+            Point64 dashStartPoint = //实线起点{x0，y0}
+            { static_cast<int64_t>(startPoint.x + dirX * dashStart) * 5882,static_cast<int64_t>(startPoint.y + dirY * dashStart) * 5882 };
+
+            Point64 dashEndPoint = //实线终点{ x0'，y0'}
+            { static_cast<int64_t>(startPoint.x + dirX * dashEnd) * 5882  ,static_cast<int64_t>(startPoint.y + dirY * dashEnd) * 5882 };
+
+
+
+            Path64 dashSegment;// 暂时储存dash的起终点
+            dashSegment.push_back(dashStartPoint); //储存dash的起点
+            dashSegment.push_back(dashEndPoint);//储存dash的终点
+            dashedPaths.push_back(dashSegment);
+            //dash的起终点储存到dashedPaths
+            // { 
+            //       [0]        [1]
+            // [0]{{x0，y0}，{x0',y0'}},实线段0起终点
+            // [1]{{x1，y1}，{x1',y1'}}，
+            // [2]{{x2，y2}，{x2',y2'}},
+            // [3]{{x3，y3}，{x3',y3'}}，
+            // [n] ··· 
+            // }
+
+            if (dashStart + dashLength < edgeLength)
+            {
+                Point64 gapStartPoint = dashEndPoint;//实线终点即为间隙起点
+                Point64 gapEndPoint;
+                if (dashStart + totalPatternLength <= edgeLength)
+                    gapEndPoint = //间隙终点{ x0''，y0''}
+                { static_cast<int64_t>(startPoint.x + dirX * (patternIdx + 1) * totalPatternLength) * 5882,
+                  static_cast<int64_t>(startPoint.y + dirY * (patternIdx + 1) * totalPatternLength) * 5882 };
+                else
+                {
+                    gapEndPoint = //间隙终点{ x0''，y0''}
+                    { static_cast<int64_t>(startPoint.x + dirX * (dashStart + (patternIdx + 1) * totalPatternLength - edgeLength)) * 5882,
+                      static_cast<int64_t>(startPoint.y + dirY * (dashStart + (patternIdx + 1) * totalPatternLength - edgeLength)) * 5882 };
+                }
+                Path64 gapSegment;// 暂时储存gap的起终点
+                gapSegment.push_back(gapStartPoint); //储存gap的起点
+                gapSegment.push_back(gapEndPoint);//储存gap的终点
+                gapPaths.push_back(gapSegment);
+                //gap的起终点储存到gapPaths
+                // { 
+                //       [0]        [1]
+                // [0]{{x0'，y0'}，{x0'',y0''}},间隔段0起终点
+                // [1]{{x1'，y1'}，{x1'',y1''}}，
+                // [2]{{x2'，y2'}，{x2'',y2''}},
+                // [3]{{x3'，y3'}，{x3'',y3''}}，
+                // [n] ··· 
+                // }
+            }
+
+        }
+
+    }
+
+
+    /*
+        for (size_t i = 0; i < dashedPaths.size(); i++)
+        {
+            if (dashedPaths[i].size() == 2)
+            {
+                std::cout << "Dash " << i << ": ";
+                std::cout << "(" << dashedPaths[i][0].x << ", " << dashedPaths[i][0].y << ") -> ";
+                std::cout << "(" << dashedPaths[i][1].x << ", " << dashedPaths[i][1].y << ")" << std::endl;
+            }
+        }
+
+        std::cout << std::endl;
+        std::cout << std::endl;
+
+        for (size_t i = 0; i < dashedPaths.size(); i++)
+        {
+            if (gapPaths[i].size() == 2)
+            {
+                std::cout << "Gap " << i << ": ";
+                std::cout << "(" << gapPaths[i][0].x << ", " << gapPaths[i][0].y << ") -> ";
+                std::cout << "(" << gapPaths[i][1].x << ", " << gapPaths[i][1].y << ")" << std::endl;
+            }
+        }
+        std::cout << std::endl;
+        std::cout << std::endl;
+
+        */
+
+
+
+    dashedPaths.insert(dashedPaths.end(), gapPaths.begin(), gapPaths.end());//合并为加工路径坐标
+
+
+    /*
+
+    SvgWriter svg;//改色修改pencolor
+    svg.AddPaths(dashedPaths, true, FillRule::Negative, 0xFFff9300, 0xFFff9300, 1.3, true);
+    svg.AddPaths(gapPaths, true, FillRule::Negative, 0xFF1dd930, 0xFF1dd930, 1.3, true);
+    SvgSaveToFile(svg, "1.svg", 900, 1800, 20);
+    System("1.svg");
+
+    for (size_t i = 0; i < dashedPaths.size(); i++)
+    {
+        if (dashedPaths[i].size() == 2)
+        {
+            std::cout << "Dash " << i << ": ";
+            std::cout << "(" << dashedPaths[i][0].x << ", " << dashedPaths[i][0].y << ") -> ";
+            std::cout << "(" << dashedPaths[i][1].x << ", " << dashedPaths[i][1].y << ")" << std::endl;
+        }
+    }
+    */
+    return dashedPaths;
+
 }

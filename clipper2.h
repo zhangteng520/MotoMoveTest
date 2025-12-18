@@ -80,6 +80,7 @@ struct Cube3D {
 };
 
 void Paths64RatioConvert(Clipper2Lib::Paths64& path, double ratio);
+Clipper2Lib::Paths64 ThinwallPlaning(int length);
 void VariPathssConvert(VariPathss& vpss, double ratio);
 
 void RotateAngle(Clipper2Lib::Paths64& paths64, double angle);
@@ -122,6 +123,8 @@ void ShowPaths64(const Clipper2Lib::Paths64& paths);
 void Connect(const Clipper2Lib::Paths64& paths, Clipper2Lib::Paths64& output);
 void ShowSvg(const Clipper2Lib::Paths64& fill, const Clipper2Lib::Paths64& contour);
 void ShowScanLinesSVG(const ScanLines& lines,float power_min =50,float power_max =125,float penwidth = 5.f, const std::string svg_name="1");
+ScanLines Paths64ToScanLines(const Clipper2Lib::Paths64& paths, float power, float speed);
+
 //route
 void AutoFeed(double AreaPlate, double AreaEntity, double layerThickness, double& addThickness);
 //这里的boundary会被修改

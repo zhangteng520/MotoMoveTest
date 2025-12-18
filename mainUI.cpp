@@ -1025,7 +1025,13 @@ int showUI()
 				ImGui::End();
 			}
 			ImGui::InputInt("层数", &layers);
-			ImGui::InputInt("扫描线条数", &number);
+			ImGui::InputInt("扫描线条数", &number); ImGui::SameLine();
+			if(ImGui::Button("单道扫描")){
+				scanInitial();
+				Clipper2Lib::Paths64 path = ThinwallPlaning(100);
+				scanContour(path,50,1000);
+				scanFree();
+			}
 			if (ImGui::Button("路径规划##cc")) {
 
 				char filename[256];

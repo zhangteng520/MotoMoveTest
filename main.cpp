@@ -33,7 +33,7 @@ int main()
 	//加入运动控制台线程
 	//thread t4(MoveCom);
 	//this_thread::sleep_for(chrono::milliseconds(3000));
-
+    //std::cout << sizeof(double*) << endl;
 	t1.join();
 	//t3.join();
 	//t4.join();
