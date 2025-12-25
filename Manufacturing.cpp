@@ -11,7 +11,7 @@
 #include"Voxelization.h"
 #include"control.h"
 #include "Socket.h"
-
+#include "file.h"
 void ScanSingle(float power, float speed);
 void MultiPartsPrint(const ScanParamter& scanparameter, std::vector<CLayers> clayerss, bool IsStimulate, std::atomic<bool>&ProcessFlag) {
 	if (!IsStimulate) {
@@ -74,6 +74,12 @@ void MultiPartsPrint(const ScanParamter& scanparameter, std::vector<CLayers> cla
 //	if (IsStimulate) {
 //#pragma omp parallel for reduction(+:timeTotal)
 //	}
+	//统计路径规划的时间
+	std::vector<float>coolingTime, layerssss;
+	coolingTime.resize(clayerss[0].size() / 25,0);
+	for (int i = 0; i < coolingTime.size(); i++) {
+		layerssss.push_back(i);
+	}
 
 	for (int layer_Gobal_index = 0; layer_Gobal_index <= ZLayersMax; layer_Gobal_index++) {
 		if (ProcessFlag.load(std::memory_order_acquire) == false)
@@ -154,6 +160,7 @@ void MultiPartsPrint(const ScanParamter& scanparameter, std::vector<CLayers> cla
 				double rotate = (a * layer_index) % 360;
 				ZigZagPlaning(clayerss[partnum][layer_index].bound, scanparameter.Part[partnum].Fill.间隙,
 					scanparameter.Gobal.光斑半径补偿, rotate, AirOutlet::Right, fill, contour);
+				coolingTime[layer_index / 25] += TimeOfPath(fill, scanparameter.Part[partnum].Fill.速度,3000);
 				if (fill.size() != 0)
 					Scan(Paths64ToScanLines(fill, scanparameter.Part[partnum].Fill.功率, scanparameter.Part[partnum].Fill.速度));
 				if (contour.size() != 0
@@ -293,16 +300,21 @@ void MultiPartsPrint(const ScanParamter& scanparameter, std::vector<CLayers> cla
 		auto duration1 = std::chrono::duration_cast<std::chrono::milliseconds>(endTime1 - startTime1);
 		auto duration3 = std::chrono::duration_cast<std::chrono::milliseconds>(endTime3 - endTime1);
 		outputFile << layer_Gobal_index << "," << duration1.count() << "," << duration3.count() << std::endl;
-		std::cout << "wholeLayers" << ZLayersMax << ". " << "layer: " << layer_Gobal_index << " has finished" << std::endl;
+		std::cout << "wholeLayers" << ZLayersMax << ". " << "layer: " << layer_Gobal_index << " has finished" << std::endl << std::endl;
 	}
 	if (scanparameter.Gobal.IsThermalImager) {
 		ThermalConnector::exit();
 	}
+	
 	scanFree();
 	if (IsStimulate) {
 		std::cout << "Total Precess Time :" << timeTotal / 3600 << std::endl;
 		std::cout << "Total Precess Time :" << timeTotal / 3600 << std::endl;
-		std::cout << "Total Precess Time :" << timeTotal / 3600 << std::endl;
+		std::cout << "Total Precess Time :" << timeTotal / 3600 << std::endl << std::endl;
+		std::string filenname;
+		SelectSaveFile(filenname);
+		
+		SaveVectorData<float>(layerssss, coolingTime, filenname);
 	}
 	outputFile.close();
 	outputFile2.close();
@@ -938,6 +950,29 @@ void rgb_to_hsv(float r, float g, float b, float* h, float* s, float* v) {
 struct RGb {
 	unsigned char r, g, b;
 };
+//(x1, y2) ── Q12 ── Q22
+//|              |
+//|      P       |
+//|              |
+//(x1, y1) ── Q11 ── Q21
+
+inline double bilinearInterpolate(
+	double x, double y,
+	double x1, double y1,
+	double x2, double y2,
+	double Q11, double Q21,
+	double Q12, double Q22)
+{
+	double denom = (x2 - x1) * (y2 - y1);
+	if (denom == 0.0)
+		return 0.0; // 防止除零
+
+	return (Q11 * (x2 - x) * (y2 - y) +
+		Q21 * (x - x1) * (y2 - y) +
+		Q12 * (x2 - x) * (y - y1) +
+		Q22 * (x - x1) * (y - y1)) / denom;
+}
+
 ScanLines ThermalImageToScanLines(const CLayers& layer, int height_index,float interval,float powerMax,float powerMin,float speed, const char* image_path,const float voxelsize,bool IsUniform) {
 	int width, height, channels;
 	ScanLines ret;
@@ -1031,9 +1066,10 @@ ScanLines ThermalImageToScanLines(const CLayers& layer, int height_index,float i
 						
 						
 
-
-						int voxel_index_x = std::round((x2 - cube.x_min * 5882.0) / 5882.0);
-						int voxel_index_y = std::round((y2 - cube.y_min * 5882.0) / 5882.0);
+						double voxel_index_x__ = ((x2 - cube.x_min * 5882.0) / 5882.0);
+						double voxel_index_y__ = ((y2 - cube.y_min * 5882.0) / 5882.0);
+						int voxel_index_x = voxel_index_x__;
+						int voxel_index_y = voxel_index_y__;
 						if (voxel_index_x >= width || voxel_index_y >= height) {
 							std::cout << p1.x << " " << p1.y << std::endl;
 							std::cout << p2.x << " " << p2.y << std::endl;
@@ -1042,26 +1078,46 @@ ScanLines ThermalImageToScanLines(const CLayers& layer, int height_index,float i
 							std::cout << i[j].x << " " << i[j].y << std::endl;
 							throw "error";
 						}
+						auto GetFactor = [&](int voxel_index_x,int voxel_index_y) {
+							int r = bitmap[voxel_index_y][voxel_index_x].r;
+							int g = bitmap[voxel_index_y][voxel_index_x].g;
+							int b = bitmap[voxel_index_y][voxel_index_x].b;
+
+
+							float h, s, v;
+							rgb_to_hsv(r / 255.f, g / 255.f, b / 255.f, &h, &s, &v);
+
+							float factor = 1.0f;
+							if (IsUniform && abs(h_max - h_min) > 1e-6) {
+								factor = ((h_max - h) / (h_max - h_min));
+							}
+							else {
+								factor = ((0.7 - h) / (0.7));
+							}
+							/*if (factor < 0 || factor >1) {
+								throw "error";
+							}*/
+							return factor;
+						};
+						auto IsWhite = [&](int voxel_index_x,int voxel_index_y) {
+							return bitmap[voxel_index_y][voxel_index_x].r == 255 && bitmap[voxel_index_y][voxel_index_x].g == 255 && bitmap[voxel_index_y][voxel_index_x].b == 255;
+							};
+						double special_factor = 0;
 						
-						int r = bitmap[voxel_index_y][voxel_index_x].r;
-						int g = bitmap[voxel_index_y][voxel_index_x].g;
-						int b = bitmap[voxel_index_y][voxel_index_x].b;
-
-
-						float h, s, v;
-						rgb_to_hsv(r / 255.f, g / 255.f, b / 255.f, &h, &s, &v);
-
-						float factor = 1.0f;
-						if (IsUniform&&abs(h_max - h_min) >1e-6) {
-							factor =   ((h_max - h) / (h_max - h_min)) ;
-						}
-						else {
-							factor = ((0.7 - h) / (0.7));
-						}
-						if (factor < 0||factor >1) {
-							throw "error";
-						}
-						double line_power = (1 - factor) * (powerMax - powerMin) + powerMin;
+							double Q11 = !IsWhite(voxel_index_x + 1, voxel_index_y)?GetFactor(voxel_index_x, voxel_index_y): GetFactor(voxel_index_x, voxel_index_y);
+							double Q12 = !IsWhite(voxel_index_x , voxel_index_y+1)?GetFactor(voxel_index_x, voxel_index_y + 1): GetFactor(voxel_index_x, voxel_index_y);
+							double Q21 = !IsWhite(voxel_index_x+1, voxel_index_y) ? GetFactor(voxel_index_x + 1, voxel_index_y): GetFactor(voxel_index_x, voxel_index_y);
+							double Q22 = !IsWhite(voxel_index_x + 1, voxel_index_y+1)?GetFactor(voxel_index_x + 1, voxel_index_y + 1): GetFactor(voxel_index_x, voxel_index_y);
+							special_factor  = bilinearInterpolate(voxel_index_x__, voxel_index_y__,
+								voxel_index_x, voxel_index_y,
+								voxel_index_x + 1, voxel_index_y + 1,
+								Q11,
+								Q21,
+								Q12,
+								Q22);
+						
+						double line_power = (1 - special_factor) * (powerMax - powerMin) + powerMin;
+						
 						power_min = std::min(line_power, power_min);
 						power_max = std::max(line_power, power_max);
 
@@ -1098,7 +1154,7 @@ double TimeOfPath(const Clipper2Lib::Paths64& p, double markspeed,double jumpspe
 			time_ += DisTwoPoints(p[i][j], p[i][j + 1]) / markspeed/5882.f;
 		}
 		if (i >= 1) {
-			time_ += DisTwoPoints(p[i - 1].back(), p[i].front())/jumpspeed;
+			time_ += DisTwoPoints(p[i - 1].back(), p[i].front())/jumpspeed/5882.f;
 		}
 	}
 	return time_;

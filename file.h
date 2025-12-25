@@ -237,3 +237,41 @@ inline std::wstring getCurrentUserNameW() {
 
 	return std::wstring(buffer);
 }
+
+
+template<typename T>
+inline int SaveVectorData(const std::vector<T>& data1, const std::vector<T>& data2, const std::string filename) {
+	std::ofstream outFile(filename, std::ios::out);
+	if (!outFile) {
+		std::cerr << "无法打开文件！\n";
+		return 1;
+	}
+	assert(data1.size() == data2.size());
+	for (int i = 0; i < data1.size(); i++) {
+		outFile << i << "\t" << data1[i] << "\t" << data2[i] << "\n"; // 每行一个
+	}
+	outFile.close();
+	std::cout << filename << "\n";
+	return 0;
+}
+inline bool SelectSaveFile(std::string& filename) {
+	// 缓冲区保存选择的文件路径
+	wchar_t filePath[MAX_PATH] = L"";
+
+	// 设置 OPENFILENAME 结构体
+	OPENFILENAME ofn = { 0 };
+	ofn.lStructSize = sizeof(ofn);
+	ofn.lpstrFilter = _T("文本文件 (*.txt)\0*.txt\0所有文件 (*.*)\0*.*\0");
+	ofn.lpstrFile = filePath;
+	ofn.nMaxFile = MAX_PATH;
+	ofn.lpstrTitle = _T("保存文件");
+	ofn.Flags = OFN_OVERWRITEPROMPT | OFN_PATHMUSTEXIST;
+	ofn.lpstrDefExt = _T("txt");
+
+	if (GetSaveFileName(&ofn)) {
+		filename = utf8_to_gb2312(ConvertLPWSTRToString((LPWSTR)filePath));
+		std::cout << "用户选择的路径是:\n" << filename << std::endl;
+		return true;
+	}
+	return false;
+}

@@ -1111,7 +1111,7 @@ int showUI()
 				CLayers clayers = slcReader.layers();
 
 				SelectOpenFiles(image_file);
-				ScanLines lines = ThermalImageToScanLines(clayers, 691, 0.08, 180, 100, 1000, image_file, 1, false);
+				ScanLines lines = ThermalImageToScanLines(clayers, 890, 0.08, 180, 100, 1000, image_file, 1, true);
 				ShowScanLinesSVG(lines,100,180);
 				
 				std::cout <<"Desired Process Time:" << TimeOfPath(lines, 1000, 3000) << std::endl;
